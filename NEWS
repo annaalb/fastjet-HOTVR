@@ -1,0 +1,23 @@
+-------------------------
+Version 1
+-------------------------
+
+The initial release of the HOTVR algorithm. The algorithm has been developed by
+Tobias Lapsien, Roman Kogler and Johannes Haller (University of Hamburg). 
+This release has been tested for top-quark tagging at the LHC. 
+Developments and adaptions for W,Z,H tagging are ongoing. 
+
+-- 1.1.0: Considerable speed improvements, especially for high particle multiplicities. 
+The clustering uses now the N2Tiled and N2Plain options available from Fastjet 3.2 (and higher). 
+For earlier Fastjet versions, the NNH clustering is used as default (similar to version 1.0.0).
+The user can now choose the clustering strategy, "Best" is taken as default (dynamically switches 
+between the various options, based on the multiplicity, the maximum R and the Fastjet version).
+The implementation of the N2Tiled and N2Plain methods is based on the developments of the 
+VR algorithm, partially taken and adapted from VariableR/VariableRPlugin.cc, version 1.2.1. 
+Many thanks to Gregory Soyez, Nikola Whallon and Jesse Thaler!
+
+-- 1.0.0: release including the algorithm itself (HOTVR) and a helper class
+to access additional substructure information (HOTVRinfo). An example program 
+is given in example.cc
+
+

@@ -1,0 +1,37 @@
+
+-----------------------------------------------
+The Heavy Object Tagger with Variable R (HOTVR)
+-----------------------------------------------
+
+The HOTVR algorithm is based on the physics described in:
+
+   A new tagger for hadronically decaying heavy particles at the LHC
+
+   Tobias Lapsien, Roman Kogler, Johannes Haller
+   arXiv:1606.04961
+
+The algorithm has been developed for the reconstruction and identification
+of boosted, hadronically decaying heavy particles (W,Z,H,t). For top-quark 
+tagging, it is usable in a large range of transverse momentum (pt), from 
+100 GeV up to more than 2500 GeV. Studies for W,Z,H tagging are ongoing.
+
+The HOTVR implementation is based on the implementations of the mass jump and
+Variable R algorithms in the Fastjet Contribs packages 
+ClusteringVetoPlugin 1.0.0 and VariableR 1.1.1, respectively.
+These implementations have been adapted and modified to make 
+the HOTVR algorithm an independent Fastjet plugin. 
+Speed improvements have been achieved using developments by 
+Gregory Soyez, Nikola Whallon and Jesse Thaler, done for the 
+VariableR version 1.2.1. 
+
+If you use this package, please cite the following papers:
+
+ - Tobias Lapsien, Roman Kogler, Johannes Haller,
+   "A new tagger for hadronically decaying heavy particles at the LHC", arXiv:1606.04961
+
+ - David Krohn, Jesse Thaler, Lian-Tao Wang, "Jets with Variable R", 
+   JHEP 06, 059 (2009) [arXiv:0903.0392 [hep-ph]]
+
+ - Martin Stoll, "Vetoed jet clustering: The mass-jump algorithm", 
+   JHEP 04, 111 (2015) [arXiv:1410.4637 [hep-ph]]
+

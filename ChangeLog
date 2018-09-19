@@ -1,0 +1,8 @@
+2016-09-29 <rkogler>
+    Update clustering to use the N2Tiled and N2Plain options available in Fastjet 3.2 (and higher).
+    If Fastjet version < 3.2, the NNH clustering is used as default. 
+    Implementation based on the developments of the VR algorithm, partially taken and adapted from 
+	VariableR/VariableRPlugin.cc, version 1.2.1 (thanks to Gregory Soyez, Nikola Whallon and Jesse Thaler).
+
+2016-06-13 <tlapsien>
+	Initial creation based on parts of the VariableR plugin and the ClusteringVetoPlugin
