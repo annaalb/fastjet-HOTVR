@@ -54,7 +54,7 @@ namespace contrib{
     double mmin() const;
 
     // ptfraction of subjet i, given by p_T,i / p_T,fatjet
-    double ptfraction(int i) const;
+    double ptfraction(uint i) const;
        
   private:
     std::vector<fastjet::PseudoJet> _subjets;
