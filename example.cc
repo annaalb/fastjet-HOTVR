@@ -102,7 +102,7 @@ int main(){
     print_jets(hotvr_jets, clust_seq);
     
     // now access subjets with the info class and print them
-    for(int i=0;i<hotvr_jets.size();i++)
+    for(uint i=0;i<hotvr_jets.size();i++)
       {
         // vector with subjets of fatjet i
         // subjets saved in user_info class HOTVRinfo
