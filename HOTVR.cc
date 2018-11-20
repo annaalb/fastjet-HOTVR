@@ -159,7 +159,7 @@ namespace contrib {
 
 	      bool set=false;
 	      std::vector<fastjet::PseudoJet> subjets;
-	      for(int o=0;o<_jets.size();o++){ 
+	      for(uint o=0;o<_jets.size();o++){
 	        if(_jets[o].user_index()==i) {
 	          _jets[_jets.size()-1].set_user_index(i*100);
 	          if(!set) {
@@ -214,7 +214,7 @@ namespace contrib {
 	      if(cs.jets()[i].pt()>=_pt_sub && cs.jets()[j].pt()>=_pt_sub) {//check if the subjet pT is higher than the threshold 	
 	        cs.plugin_record_ij_recombination(i, j, dij, k);
 
-  	      for(int o=0;o<_jets.size();o++){ 	    	   
+  	      for(uint o=0;o<_jets.size();o++){
 	          if(_jets[o].user_index()==j) {
 	            _jets[o].set_user_index(k);
 	            existing_j=true;

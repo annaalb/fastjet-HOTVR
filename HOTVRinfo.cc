@@ -59,7 +59,7 @@ namespace contrib{
   double HOTVRinfo::max_distance() const { //calculates the size of the jet, by finding the constituent with the largest distance. Can be used as an estimate for a jet radius
     std::vector<fastjet::PseudoJet> pfcands = _parent.constituents();
     double oldR=0;
-    for(int j=0;j<pfcands.size();j++){
+    for(uint j=0;j<pfcands.size();j++){
       double R;
       R=_parent.delta_R(pfcands[j]);
 	    if(R>oldR){
