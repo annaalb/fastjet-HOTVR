@@ -49,7 +49,7 @@ namespace contrib{
 }
 
 
-  double HOTVRinfo::ptfraction(int i) const { //calculate the pTfraction pT_{subjet,i}/pT_{jet}
+  double HOTVRinfo::ptfraction(uint i) const { //calculate the pTfraction pT_{subjet,i}/pT_{jet}
   double ptfraction=0;
   if(_subjets.size()>i)
     ptfraction=_subjets.at(i).perp()/_parent.perp();
