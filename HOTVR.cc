@@ -258,8 +258,8 @@ namespace contrib {
   }
 
   
-  string HOTVR::description() const{
-    stringstream sstream("");
+  std::string HOTVR::description() const{
+    std::stringstream sstream("");
 
     sstream << "HOTVR (1606.04961), ";
          
@@ -271,7 +271,7 @@ namespace contrib {
       sstream << "KT";
     }
     sstream << "-like";
-    sstream << fixed << setprecision(1) << ", theta=" << _theta;
+    sstream << std::fixed << std::setprecision(1) << ", theta=" << _theta;
     sstream << ", mu=" << _mu;
     sstream << ", max_r=" << sqrt(_max_r2);
     sstream << ", min_r=" << sqrt(_min_r2);
@@ -325,7 +325,7 @@ namespace contrib {
     double mcombj = abs (combj.m());
     
     if (mcombj < _mu)  return CLUSTER; // recombine
-    else if (_theta*mcombj > max(mj1,mj2)) return VETO; 
+    else if (_theta*mcombj > std::max(mj1,mj2)) return VETO;
     else return NOVETO; // mass jump
      
   }
@@ -335,7 +335,7 @@ namespace contrib {
   HOTVR::Strategy HOTVR::best_strategy(unsigned int N) const{
 #if FASTJET_VERSION_NUMBER >= 30200
     // use the FastJet (v>/3.1) transition between N2Plain and N2Tiled
-    if (N <= 30 || N <= 39.0/(max(_max_r, 0.1) + 0.6)) return N2Plain;
+    if (N <= 30 || N <= 39.0/(std::max(_max_r, 0.1) + 0.6)) return N2Plain;
     else return N2Tiled;
 #else
     return NNH;

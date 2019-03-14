@@ -48,8 +48,6 @@
 
 #include <queue>
 
-using namespace std;
-
 FASTJET_BEGIN_NAMESPACE      // defined in fastjet/internal/base.hh
 
 namespace contrib {
@@ -113,7 +111,7 @@ namespace contrib {
     void run_clustering(fastjet::ClusterSequence & cs) const;
    
     // Information string
-    virtual string description() const;
+    virtual std::string description() const;
       
     // NOTE: Required by JetDefinition::Plugin
     double R() const { return sqrt(_max_r2); }
