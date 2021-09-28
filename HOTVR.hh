@@ -1,20 +1,20 @@
 //----------------------------------------------------------------------
-//  
+//
 //  The Heavy Object Tagger with Variable R (HOTVR)
-// 
-//  This package combines variable R jet clustering with a 
-//  mass jump veto. The resulting HOTVR jets have subjets, 
+//
+//  This package combines variable R jet clustering with a
+//  mass jump veto. The resulting HOTVR jets have subjets,
 //  accessible through a helper class (HOTVRinfo).
-//  Rejected clusters and jets without a mass jump 
+//  Rejected clusters and jets without a mass jump
 //  can be accessed as well.
 //
-//  The code is based on the implementation of the ClusteringVetoPlugin 
+//  The code is based on the implementation of the ClusteringVetoPlugin
 //  version 1.0.0 (by Seng-Pei Liew and Martin Stoll)
-//  and the VariableR plugin version 1.2.0 (by David Krohn, 
+//  and the VariableR plugin version 1.2.0 (by David Krohn,
 //  Gregory Soyez, Jesse Thaler and Lian-Tao Wang) in FastJet Contribs.
 //  Please see the README file for more information.
 //
-//  For questions and comments, please contact: 
+//  For questions and comments, please contact:
 //     Tobias Lapsien  <tobias.lapsien@desy.de>
 //     Roman Kogler    <roman.kogler@uni-hamburg.de>
 //     Johannes Haller <johannes.haller@uni-hamburg.de>
@@ -54,7 +54,7 @@ namespace contrib {
 
   //------------------------------------------------------------------------
   /// \class HOTVR
-  /// 
+  ///
   class HOTVR : public JetDefinition::Plugin {
 
   public:
@@ -67,7 +67,7 @@ namespace contrib {
       NNH,       ///< slower but already available for FastJet<3.2.0
     };
 
-    // Result of veto function, from ClusteringVetoPlugin 1.0.0 
+    // Result of veto function, from ClusteringVetoPlugin 1.0.0
     enum VetoResult {
       CLUSTER,
       VETO,
@@ -92,7 +92,7 @@ namespace contrib {
     ///  - clust_type    whether to use CA-like, kT-like, or anti-kT-like distance measure
     ///                  note that subjet finding has only been tested with CA-like clustering
     ///  - strategy      one of Best (the default), N2Tiled , N2Plain or NNH
-    ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy, 
+    ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy,
     ///                  for earlier FastJet versions NNH is used
     ///
     /// Example usage:
@@ -103,16 +103,32 @@ namespace contrib {
     /// vector<fastjet::PseudoJet> inclusive_jets = clust_seq.inclusive_jets(ptmin);
     /// std::vector<fastjet::PseudoJet> hotvr_jets;
     /// hotvr_jets = hotvr_plugin.get_jets();
-    /// \endcode  
-    HOTVR(double mu, double theta,double min_r, double max_r,double rho, double pt_sub, double clust_type, 
-             Strategy requested_strategy = Best);
-      
+    /// \endcode
+    HOTVR(double mu, double theta,double min_r, double max_r,double rho, double pt_sub, double clust_type,
+            Strategy requested_strategy = Best);
+    /// ANNA: Constructor that sets HOTVR algorithm parameters for HOTVR with Softdrop
+    ///  - beta          soft drop angle dependence
+    ///  - z_cut         soft drop strength
+    ///  - pt_threshold  minimum pt for the Soft Drop Check
+    ///  - min_r         minimum jet radius
+    ///  - max_r         maximum jet radius
+    ///  - rho           mass scale for effective radius (i.e. R ~ rho/pT)
+    ///  - alpha         exponent in the effective radius (i.e. R ~ rho/pT ^ alpha)
+    ///  - pt_sub        minimum pt of subjets (default = 0)
+    ///  - clust_type    whether to use CA-like, kT-like, or anti-kT-like distance measure
+    ///                  note that subjet finding has only been tested with CA-like clustering
+    ///  - strategy      one of Best (the default), N2Tiled , N2Plain or NNH
+    ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy,
+    ///                  for earlier FastJet versions NNH is used
+    HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r,double rho, double pt_sub, double mu, double clust_type, double alpha,
+          Strategy requested_strategy = Best); //ANNA new constructor for HOTVR with Softdrop, possibility to change alpha
+
     // Virtual function from JetDefinition::Plugin that implements the algorithm
     void run_clustering(fastjet::ClusterSequence & cs) const;
-   
+
     // Information string
     virtual std::string description() const;
-      
+
     // NOTE: Required by JetDefinition::Plugin
     double R() const { return sqrt(_max_r2); }
     std::vector<PseudoJet>  get_jets(){return sorted_by_pt(_hotvr_jets);} //return the candidate jets
@@ -120,17 +136,20 @@ namespace contrib {
     std::vector<fastjet::PseudoJet> get_rejected_cluster(){return _rejected_cluster;} //return jets without massjumps
     std::vector<fastjet::PseudoJet> get_rejected_subjets(){return _rejected_subjets;} //return subjets rejected by the pT criterion
     void Reset(){ _hotvr_jets.clear(); _soft_cluster.clear();  _rejected_cluster.clear(); _subjets.clear(); _jets.clear(); _rejected_subjets.clear();}
-      
+
   private:
 
     // bool for banner printout
-    static bool _already_printed; 
-
-    // Parameters of the HOTVR 
+    static bool _already_printed;
+    // ANNA added Parameters for soft drop condition
+    double _beta, _z_cut, _pt_threshold;
+    // Parameters of the HOTVR
     double _mu, _theta, _min_r2, _max_r2, _max_r, _rho2, _pt_sub;
     double _clust_type;
-    Strategy _requested_strategy;    
-  
+    Strategy _requested_strategy;
+    // ANNA add _alpha
+    double _alpha;
+
     // the jets and rejected clusters
     mutable std::vector<fastjet::PseudoJet> _jets;
     mutable std::vector<fastjet::PseudoJet> _hotvr_jets;
@@ -149,12 +168,15 @@ namespace contrib {
 
     // veto condition
     VetoResult CheckVeto(const PseudoJet& j1, const PseudoJet& j2) const;
-    
+
+    // ANNA: veto condition for soft drop
+    VetoResult CheckVeto_SoftDrop(const PseudoJet& j1, const PseudoJet& j2) const;
+
     // print welcome message with some information
     void print_banner();
 
   };
-   
+
   //----------------------------------------------------------------------
   // classes to help run the HOTVR algorithm using NN-type classes
   // the code below is based on the implementation of the Variable R clustering
@@ -164,22 +186,25 @@ namespace contrib {
   class HOTVRNNInfo {
   public:
     HOTVRNNInfo(double rho2_in, double min_r2_in, double max_r2_in,
-                    double clust_type_in)
+                    double clust_type_in, double alpha_in) // ANNA added alpha
       : _rho2(rho2_in), _min_r2(min_r2_in), _max_r2(max_r2_in),
-        _clust_type(clust_type_in) {}
-    
+        _clust_type(clust_type_in),
+        _alpha(alpha_in) {}
+
     double rho2()  const  {return _rho2; }
     double min_r2() const {return _min_r2;}
     double max_r2() const {return _max_r2;}
+    double alpha() const {return _alpha;}
     double momentum_scale_of_pt2(double pt2) const {
       return pow(pt2,_clust_type);
     }
-    
+
   private:
-    double _rho2;   ///< constant (squared) that controls the overall R magnitude 
+    double _rho2;   ///< constant (squared) that controls the overall R magnitude
     double _min_r2; ///< minimal allowed radius squared
     double _max_r2; ///< maximal allowed radius squared
     double _clust_type; ///< cluster type (power "p" in distance measure)
+    double _alpha; ///< exponent in the effective radius
   };
 
   // class carrying the minimal info required for the clustering
@@ -191,11 +216,23 @@ namespace contrib {
       _rap = jet.rap();
       _phi = jet.phi();
       double pt2 = jet.pt2();
-
       // get the effective "radius" Reff
-      _beam_R2 = info->rho2()/pt2;
+    //  _beam_R2 = info->rho2()/pt2;
+
+      _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
+
       if      (_beam_R2 > info->max_r2()){ _beam_R2 = info->max_r2();}
       else if (_beam_R2 < info->min_r2()){ _beam_R2 = info->min_r2();}
+
+      // std::cout << "---------Alpha: " << info->alpha() << '\n';
+      // std::cout << "Rho2: " << info->rho2() << '\n';
+      // std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
+      //
+      // std::cout << "pt2: " << pt2 << '\n';
+      // std::cout << "pt: " << std::sqrt(pt2) << '\n';
+      //
+      // std::cout << "beam_R2 "<< _beam_R2 << '\n';
+      // std::cout << "beam_R "<< std::sqrt(_beam_R2) << '\n';
 
       // get the appropriate momentum scale
       _mom_factor2 = info->momentum_scale_of_pt2(pt2);
@@ -229,7 +266,7 @@ namespace contrib {
   private:
     double _rap, _phi, _mom_factor2, _beam_R2;
   };
-   
+
 } // namespace contrib
 
 FASTJET_END_NAMESPACE

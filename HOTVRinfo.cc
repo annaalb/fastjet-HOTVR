@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------
-//  
+//
 //  The Heavy Object Tagger with Variable R (HOTVR)
-// 
+//
 //  Helper class to access subjets and calculate jet observables.
 //
-//  For questions and comments, please contact: 
+//  For questions and comments, please contact:
 //     Tobias Lapsien  <tobias.lapsien@desy.de>
 //     Roman Kogler    <roman.kogler@uni-hamburg.de>
 //     Johannes Haller <johannes.haller@uni-hamburg.de>
