@@ -380,53 +380,53 @@ namespace contrib {
         cs.plugin_record_ij_recombination(i, j, dij, k);
         bool _masscondition = false;
         // CASE 1: no subjets stored previously
-        //if (_jets.size()==0) {
+        if (_jets.size()==0) {
           if (_debug) {std::cout << "CASE 1: no jets stored yet, check mass condition for pseudojets that should be clustered. " << '\n';}
           PseudoJet combj = cs.jets()[i] + cs.jets()[j];
           double mcombj = abs(combj.m());
           if(mcombj > _mu){_masscondition=true;}
-      //  }
+        }
         // CASE 2: subjets stored previously
         // Check mass threshold for all combinations of subjets
-      //   else{
-      //     std::vector<PseudoJet> subjets_j;
-      //     std::vector<PseudoJet> subjets_i;
-      //     // find all previously stored subjets
-      //     for(uint o=0;o<_jets.size();o++){ // for list of jets
-      //       if (_debug) {
-      //         std::cout << "CASE 2: Loop over jets to store subjets " << '\n';
-      //       }
-      //       if(_jets[o].user_index()==j) { // jet j is in list
-      //         subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
-      //         if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
-      //       }
-      //
-      //       if( _jets[o].user_index()==i){ // jet i is in list
-      //         if (_debug) {std::cout << "Jet i has a subjet " << '\n';}
-      //         subjets_i.push_back(_jets[o]);
-      //       }
-      //     }
-      //     if(subjets_j.size() == 0) {
-      //       subjets_j.push_back(cs.jets()[j]);
-      //       if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
-      //     }
-      //     if(subjets_i.size() == 0){
-      //       subjets_i.push_back(cs.jets()[i]);
-      //       if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
-      //     }
-      //
-      //     for (size_t n = 0; n < subjets_j.size(); n++) {
-      //       for (size_t m = 0; m < subjets_i.size(); m++) {
-      //         PseudoJet combj = subjets_j[n]+subjets_i[m];
-      //         double mcombj = abs(combj.m());
-      //         if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
-      //         if(mcombj > _mu){
-      //           _masscondition=true;
-      //           break;
-      //         }
-      //       }
-      //     }
-      // } // end at least one jet has subjets
+        else{
+          std::vector<PseudoJet> subjets_j;
+          std::vector<PseudoJet> subjets_i;
+          // find all previously stored subjets
+          for(uint o=0;o<_jets.size();o++){ // for list of jets
+            if (_debug) {
+              std::cout << "CASE 2: Loop over jets to store subjets " << '\n';
+            }
+            if(_jets[o].user_index()==j) { // jet j is in list
+              subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
+              if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
+            }
+
+            if( _jets[o].user_index()==i){ // jet i is in list
+              if (_debug) {std::cout << "Jet i has a subjet " << '\n';}
+              subjets_i.push_back(_jets[o]);
+            }
+          }
+          if(subjets_j.size() == 0) {
+            subjets_j.push_back(cs.jets()[j]);
+            if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
+          }
+          if(subjets_i.size() == 0){
+            subjets_i.push_back(cs.jets()[i]);
+            if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
+          }
+
+          for (size_t n = 0; n < subjets_j.size(); n++) {
+            for (size_t m = 0; m < subjets_i.size(); m++) {
+              PseudoJet combj = subjets_j[n]+subjets_i[m];
+              double mcombj = abs(combj.m());
+              if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
+              if(mcombj > _mu){
+                _masscondition=true;
+                break;
+              }
+            }
+          }
+      } // end at least one jet has subjets
         // if the mass condition was fulfilled for at least one pair of subjets
         if(_masscondition){// code body copied from old implementation -> store subjets
           if(_debug){std::cout << "masscut fullfilled, store subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
