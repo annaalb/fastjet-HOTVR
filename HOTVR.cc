@@ -198,15 +198,38 @@ namespace contrib {
       int i(-1), j(-1);
       double dij = nn.dij_min(i, j); //ANNA returns the dij_min and indices i and j for the corresponding jets.
 // If j<0 then i recombines with the beam
-  if(_debug){std::cout << "dij is "<< dij << '\n';}
+      if(_debug){std::cout << "dij is "<< dij << '\n';}
       if(j < 0) {//diB is smallest
         if(_debug){std::cout << ".................d_iB is smallest............." << '\n';}
 	      cs.plugin_record_iB_recombination(i,dij);
-	      _jets.push_back(cs.jets()[i]); //ANNA pseudojet i is stored as jet
+	      _jets.push_back(cs.jets()[i]); //ANNA the last pseudojet (final HOTVR jet) i is stored as jet
 	      _jets[_jets.size()-1].set_user_index(-2); //set the user index of the jet to -2
 
 	      bool set=false;
 	      std::vector<fastjet::PseudoJet> subjets;
+        // if (last particle that has been clustered into the jet is no subjet jet) -> merge into nearest subjet
+        if (_jets[_jets.size()-2].user_index()!=i) { // last particle that has been clustered has not the same user index (is no subjet)
+          // find closest subjet (with index i)
+          double dist;
+          double min_dist;
+          PseudoJet closest_subjet;
+          int position;
+          for(uint o=0;o<_jets.size();o++){ // go through all stored jets
+            if(_jets[o].user_index()==i) { // find the corresponding subjets (same user index)
+              dist = _jets[o].delta_R(_jets[_jets.size()-2]);
+              if (dist < min_dist) {
+                min_dist = dist;
+                closest_subjet = _jets[o];
+                position = o;
+              }
+            }
+          }
+          // merge the particle into the clostest subjet
+          _jets[position]=_jets[position]+_jets[_jets.size()-2];
+          // remove the particle from the list
+          _jets.erase(_jets.end()-2);
+        }
+        // now go through all stored jets
 	      for(uint o=0;o<_jets.size();o++){ //ANNA go through all stored jets
 	        if(_jets[o].user_index()==i) { // find the corresponding subjets (same user index)
             if(_debug){std::cout << "User index ==i " << _jets[o].user_index() << '\n';}
@@ -230,16 +253,19 @@ namespace contrib {
               _subjets[_hotvr_jets.at(_hotvr_jets.size()-1).user_index()]) );
           if(_debug){std::cout << "Set the HOTVR info." << '\n';}
 
-          for (size_t l = 0; l < _subjets.size(); l++) {//begin only debug
-           if(_debug){std::cout << "Size of the subjet list " <<   _subjets[l].size() << '\n';}
+          if(_debug){//begin only debug
+          for (size_t l = 0; l < _subjets.size(); l++) {
+           std::cout << "Size of the subjet list " <<   _subjets[l].size() << '\n';
+           if (_subjets[l].size()==1 && _subjets[l].at(0).m() > _mu) { // check mass for jets with only 1 subjet
+             std::cout << "WARNING: found jet with 1 subjet, but has m="<< _subjets[l].at(0).m() << '\n';
+           }
             for (size_t m = 0; m < _subjets[l].size(); m++) {
-              if(_debug){
-                std::cout << " pt "<< _subjets[l].at(m).pt() << '\n';
+                std::cout << " pt "<< _subjets[l].at(m).pt() << ", mass "<<_subjets[l].at(m).m() << '\n';
                 if(_subjets[l].at(m).pt() < _pt_threshold){
                   std::cout << "WARNING subjet pt smaller pt threshold!" << '\n';
-                  }
-              }
+                }
             }
+          }
           } //debug end
         } // end "if the HOTVR jet has subjets"
         else { //all jets that have no subjets
@@ -354,78 +380,53 @@ namespace contrib {
         cs.plugin_record_ij_recombination(i, j, dij, k);
         bool _masscondition = false;
         // CASE 1: no subjets stored previously
-        if (_jets.size()==0) {
+        //if (_jets.size()==0) {
           if (_debug) {std::cout << "CASE 1: no jets stored yet, check mass condition for pseudojets that should be clustered. " << '\n';}
           PseudoJet combj = cs.jets()[i] + cs.jets()[j];
           double mcombj = abs(combj.m());
           if(mcombj > _mu){_masscondition=true;}
-        }
+      //  }
         // CASE 2: subjets stored previously
         // Check mass threshold for all combinations of subjets
-        else{
-          std::vector<PseudoJet> subjets_j;
-          std::vector<PseudoJet> subjets_i;
-          // find all previously stored subjets
-          for(uint o=0;o<_jets.size();o++){ // for list of jets
-            if (_debug) {
-              std::cout << "CASE 2: Loop over jets to store subjets " << '\n';
-            }
-            if(_jets[o].user_index()==j) { // jet j is in list
-              subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
-              if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
-            }
-
-            if( _jets[o].user_index()==i){ // jet i is in list
-              if (_debug) {std::cout << "Jet i has a subjet " << '\n';}
-              subjets_i.push_back(_jets[o]);
-            }
-          }
-          if(subjets_j.size() == 0) {
-            subjets_j.push_back(cs.jets()[j]);
-            if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
-          }
-          else if(subjets_i.size() == 0){
-            subjets_i.push_back(cs.jets()[i]);
-            if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
-          }
-
-          // loop over all permutations and calculate mass of two subjets
-          // if (subjets_j.size() == 0) { // i has subjets
-          //   for (size_t m = 0; m < subjets_i.size(); m++) {
-          //     PseudoJet combj = cs.jets()[j]+subjets_i[m];
-          //     double mcombj = abs(combj.m());
-          //     if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
-          //     if(mcombj > _mu){
-          //       _masscondition=true;
-          //       break;
-          //     }
-          //   }
-          // }
-          // else if (subjets_i.size() == 0) { // only j has subjets
-          //   for (size_t m = 0; m < subjets_j.size(); m++) {
-          //     PseudoJet combj = cs.jets()[i]+subjets_j[m];
-          //     double mcombj = abs(combj.m());
-          //     if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
-          //     if(mcombj > _mu){
-          //       _masscondition=true;
-          //       break;
-          //     }
-          //   }
-          // }
-        //  else{// both have subjets
-            for (size_t n = 0; n < subjets_j.size(); n++) {
-              for (size_t m = 0; m < subjets_i.size(); m++) {
-                PseudoJet combj = subjets_j[n]+subjets_i[m];
-                double mcombj = abs(combj.m());
-                if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
-                if(mcombj > _mu){
-                  _masscondition=true;
-                  break;
-                }
-              }
-            }
-        //  }
-      } // end at least one jet has subjets
+      //   else{
+      //     std::vector<PseudoJet> subjets_j;
+      //     std::vector<PseudoJet> subjets_i;
+      //     // find all previously stored subjets
+      //     for(uint o=0;o<_jets.size();o++){ // for list of jets
+      //       if (_debug) {
+      //         std::cout << "CASE 2: Loop over jets to store subjets " << '\n';
+      //       }
+      //       if(_jets[o].user_index()==j) { // jet j is in list
+      //         subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
+      //         if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
+      //       }
+      //
+      //       if( _jets[o].user_index()==i){ // jet i is in list
+      //         if (_debug) {std::cout << "Jet i has a subjet " << '\n';}
+      //         subjets_i.push_back(_jets[o]);
+      //       }
+      //     }
+      //     if(subjets_j.size() == 0) {
+      //       subjets_j.push_back(cs.jets()[j]);
+      //       if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
+      //     }
+      //     if(subjets_i.size() == 0){
+      //       subjets_i.push_back(cs.jets()[i]);
+      //       if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
+      //     }
+      //
+      //     for (size_t n = 0; n < subjets_j.size(); n++) {
+      //       for (size_t m = 0; m < subjets_i.size(); m++) {
+      //         PseudoJet combj = subjets_j[n]+subjets_i[m];
+      //         double mcombj = abs(combj.m());
+      //         if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
+      //         if(mcombj > _mu){
+      //           _masscondition=true;
+      //           break;
+      //         }
+      //       }
+      //     }
+      // } // end at least one jet has subjets
         // if the mass condition was fulfilled for at least one pair of subjets
         if(_masscondition){// code body copied from old implementation -> store subjets
           if(_debug){std::cout << "masscut fullfilled, store subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
