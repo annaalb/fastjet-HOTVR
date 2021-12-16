@@ -188,7 +188,7 @@ namespace contrib {
   template<typename NN>
   void HOTVR::NN_clustering(ClusterSequence &cs, NN &nn) const{
     // ANNA
-    bool _debug=false; //bool for debug option, that gives couts and warnings
+    bool _debug=true; //bool for debug option, that gives couts and warnings
     bool _found_subjets=false; // counts if the algorithm finds subjets -> for debugging
     // loop over pseudojets
     int njets = cs.jets().size();
@@ -207,17 +207,25 @@ namespace contrib {
 
 	      bool set=false;
 	      std::vector<fastjet::PseudoJet> subjets;
+
+        //------------handle single particles, that are not in the jet --------------
         // if (last particle that has been clustered into the jet is no subjet jet) -> merge into nearest subjet
+        // TODO make sure that the jet has other subjets
         if (_jets[_jets.size()-2].user_index()!=i) { // last particle that has been clustered has not the same user index (is no subjet)
           // find closest subjet (with index i)
+          if (_debug) { std::cout << "BEGIN: Handle single particle, that was not part of any subjet at the end of the clustering. " << '\n';}
           double dist;
-          double min_dist;
+          double min_dist = 100;
           PseudoJet closest_subjet;
           int position;
+            if (_debug) {std::cout << "Before: Go through all stored jets to find closest subjet " << '\n';}
           for(uint o=0;o<_jets.size();o++){ // go through all stored jets
+              if (_debug) {std::cout << "Go through all stored jets to find closest subjet " << '\n';}
             if(_jets[o].user_index()==i) { // find the corresponding subjets (same user index)
+              if (_debug) {std::cout << "jet with same user index found " << '\n';}
               dist = _jets[o].delta_R(_jets[_jets.size()-2]);
               if (dist < min_dist) {
+                  if (_debug) {std::cout << "dist < min_dist " << '\n';}
                 min_dist = dist;
                 closest_subjet = _jets[o];
                 position = o;
@@ -225,10 +233,24 @@ namespace contrib {
             }
           }
           // merge the particle into the clostest subjet
-          _jets[position]=_jets[position]+_jets[_jets.size()-2];
+            if (_debug) {std::cout << "Merge particle into subjet " << '\n';}
+          JetDefinition jet_def;
+          jet_def = cs.jet_def();
+            if (_debug) {std::cout << "Jet def done " << '\n';}
+          const JetDefinition::Recombiner* recombiner;
+          recombiner = jet_def.recombiner();
+            if (_debug) {std::cout << "recombiner done " << '\n';}
+          recombiner->recombine(_jets[position], _jets[_jets.size()-2], _jets[position]); // combine jet 1 and 2 and save into 3
+            if (_debug) {std::cout << "recombined jets " << '\n';}
           // remove the particle from the list
           _jets.erase(_jets.end()-2);
+            if (_debug) { std::cout << "END: Handle single particle, that was not part of any subjet at the end of the clustering. " << '\n';
+              std::cout << "min_dist = " << min_dist << '\n';
+              std::cout << "position = " << position << '\n';
+            }
         }
+        //------------END handle single particles --------------------
+
         // now go through all stored jets
 	      for(uint o=0;o<_jets.size();o++){ //ANNA go through all stored jets
 	        if(_jets[o].user_index()==i) { // find the corresponding subjets (same user index)
@@ -246,6 +268,7 @@ namespace contrib {
         } // end jet loop
         //ANNA if the previous condition was fulfilled, means the jet has subjets
         if(_jets[_jets.size()-1].user_index()!=-2) { // if the HOTVR jet has subjets
+
           if(_debug){std::cout << "user index != 2 is "<< _jets[_jets.size()-1].user_index() << '\n';}
 	        _subjets.push_back(sorted_by_pt(subjets));
 	        _hotvr_jets.at(_hotvr_jets.size()-1).set_user_info(
