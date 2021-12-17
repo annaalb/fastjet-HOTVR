@@ -188,7 +188,7 @@ namespace contrib {
   template<typename NN>
   void HOTVR::NN_clustering(ClusterSequence &cs, NN &nn) const{
     // ANNA
-    bool _debug=true; //bool for debug option, that gives couts and warnings
+    bool _debug=false; //bool for debug option, that gives couts and warnings
     bool _found_subjets=false; // counts if the algorithm finds subjets -> for debugging
     // loop over pseudojets
     int njets = cs.jets().size();
@@ -207,49 +207,6 @@ namespace contrib {
 
 	      bool set=false;
 	      std::vector<fastjet::PseudoJet> subjets;
-
-        //------------handle single particles, that are not in the jet --------------
-        // if (last particle that has been clustered into the jet is no subjet jet) -> merge into nearest subjet
-        // TODO make sure that the jet has other subjets
-        if (_jets[_jets.size()-2].user_index()!=i) { // last particle that has been clustered has not the same user index (is no subjet)
-          // find closest subjet (with index i)
-          if (_debug) { std::cout << "BEGIN: Handle single particle, that was not part of any subjet at the end of the clustering. " << '\n';}
-          double dist;
-          double min_dist = 100;
-          PseudoJet closest_subjet;
-          int position;
-            if (_debug) {std::cout << "Before: Go through all stored jets to find closest subjet " << '\n';}
-          for(uint o=0;o<_jets.size();o++){ // go through all stored jets
-              if (_debug) {std::cout << "Go through all stored jets to find closest subjet " << '\n';}
-            if(_jets[o].user_index()==i) { // find the corresponding subjets (same user index)
-              if (_debug) {std::cout << "jet with same user index found " << '\n';}
-              dist = _jets[o].delta_R(_jets[_jets.size()-2]);
-              if (dist < min_dist) {
-                  if (_debug) {std::cout << "dist < min_dist " << '\n';}
-                min_dist = dist;
-                closest_subjet = _jets[o];
-                position = o;
-              }
-            }
-          }
-          // merge the particle into the clostest subjet
-            if (_debug) {std::cout << "Merge particle into subjet " << '\n';}
-          JetDefinition jet_def;
-          jet_def = cs.jet_def();
-            if (_debug) {std::cout << "Jet def done " << '\n';}
-          const JetDefinition::Recombiner* recombiner;
-          recombiner = jet_def.recombiner();
-            if (_debug) {std::cout << "recombiner done " << '\n';}
-          recombiner->recombine(_jets[position], _jets[_jets.size()-2], _jets[position]); // combine jet 1 and 2 and save into 3
-            if (_debug) {std::cout << "recombined jets " << '\n';}
-          // remove the particle from the list
-          _jets.erase(_jets.end()-2);
-            if (_debug) { std::cout << "END: Handle single particle, that was not part of any subjet at the end of the clustering. " << '\n';
-              std::cout << "min_dist = " << min_dist << '\n';
-              std::cout << "position = " << position << '\n';
-            }
-        }
-        //------------END handle single particles --------------------
 
         // now go through all stored jets
 	      for(uint o=0;o<_jets.size();o++){ //ANNA go through all stored jets
@@ -402,6 +359,8 @@ namespace contrib {
       _found_subjets=true;
         cs.plugin_record_ij_recombination(i, j, dij, k);
         bool _masscondition = false;
+        std::vector<PseudoJet> subjets_j;
+        std::vector<PseudoJet> subjets_i;
         // CASE 1: no subjets stored previously
         if (_jets.size()==0) {
           if (_debug) {std::cout << "CASE 1: no jets stored yet, check mass condition for pseudojets that should be clustered. " << '\n';}
@@ -412,8 +371,6 @@ namespace contrib {
         // CASE 2: subjets stored previously
         // Check mass threshold for all combinations of subjets
         else{
-          std::vector<PseudoJet> subjets_j;
-          std::vector<PseudoJet> subjets_i;
           // find all previously stored subjets
           for(uint o=0;o<_jets.size();o++){ // for list of jets
             if (_debug) {
@@ -480,17 +437,67 @@ namespace contrib {
         // if no combination of subjets fullfills mcombj>mu
         else{
           if(_debug){std::cout << "masscut not fullfilled, subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
-          nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
-          for(uint o=0;o<_jets.size();o++){ // for list of jets, check if one pseudojet is already a stored subjet
-            if(_jets[o].user_index()==j) { // jet j is in list of subjets
-              _jets[o]=cs.jets()[k]; // overwrite the old subjet with the new jet
-              _jets[o].set_user_index(k);
-            }
-            if( _jets[o].user_index()==i){ // jet i is in list
-              _jets[o]=cs.jets()[k]; // overwrite the old subjet with the new jet
-              _jets[o].set_user_index(k);
-            }
-          } // end list of jets
+
+            // 1. ------------handle single particles, that are not in the jet --------------
+            // TODO !
+           // if (!(_jets.size()==0) && (subjets_j.size() == 1 || subjets_i.size() == 1)) { // at least one subjet was already stored && one subjet list includes
+           //   std::cout << "-----Handle lonely particle -------" << '\n';
+           //   //only the lonely particle
+           //    // find closest subjet (with index i)
+           //    double dist;
+           //    double min_dist = 100;
+           //    PseudoJet closest_subjet;
+           //    int position;
+           //    PseudoJet lonely_jet = subjets_j.at(0);
+           //    int sub_index = i;
+           //    int lonely_jet_index = j;
+           //    if (subjets_i.size() == 1) {
+           //      sub_index = j;
+           //      lonely_jet_index = i;
+           //      lonely_jet = subjets_i.at(0);
+           //    }
+           //    for(uint o=0;o<_jets.size();o++){ // go through all stored jets
+           //      if(!(_jets[o].user_index() == sub_index)) continue;
+           //        dist = lonely_jet.delta_R(_jets[o]);
+           //        if (dist < min_dist) {
+           //            if (_debug) {std::cout << "dist < min_dist " << '\n';}
+           //          min_dist = dist;
+           //          closest_subjet = _jets[o];
+           //          position = o;
+           //        }
+           //    }
+           //    // merge the particle into the clostest subjet (if the jet has subjets)
+           //      JetDefinition jet_def;
+           //      jet_def = cs.jet_def();
+           //      const JetDefinition::Recombiner* recombiner;
+           //      recombiner = jet_def.recombiner();
+           //      recombiner->recombine(lonely_jet, _jets[position], _jets[position]); // combine jet 1 and 2 and save into 3
+           //      _jets.erase(_jets.begin()+lonely_jet_index); // TODO
+           //
+           //      nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+           //
+           //    }
+            //------------END handle single particles --------------------
+
+          //else{ // 2. no lonely particle
+            std::cout << "Masscondition not fulfilled, combine jets" << '\n';
+            nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+            bool particle_merged=false;
+            for(uint o=0;o<_jets.size();o++){ // for list of jets, check if one pseudojet is already a stored subjet
+              if(_jets[o].user_index()==j && !particle_merged) { // jet j is in list of subjets
+                std::cout << "Masscondition not fulfilled, merge particle into already existing subjet j " << '\n';
+                _jets[o]=cs.jets()[k]; // overwrite the old subjet with the new jet
+                _jets[o].set_user_index(k);
+                particle_merged = true;
+              }
+              if( _jets[o].user_index()==i && !particle_merged){ // jet i is in list
+                std::cout << "Masscondition not fulfilled, merge particle into already existing subjet i " << '\n';
+                _jets[o]=cs.jets()[k]; // overwrite the old subjet with the new jet
+                _jets[o].set_user_index(k);
+                particle_merged = true;
+              }
+            } // end list of jets
+          //}
         } // end mu not fulfilled
         njets--;
       } // end ptsub check
