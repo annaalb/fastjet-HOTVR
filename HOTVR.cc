@@ -339,28 +339,54 @@ namespace contrib {
       if(_debug){std::cout << "entering VETO" << '\n';}
 
         k=-1;
+        // --------- pt sub check for first subjet ----------
         if(cs.jets()[i].pt()<_pt_sub) { // check pt of first potential subjet
-      if(_debug){std::cout << "VETO: remove first subjet with pt  "<< cs.jets()[i].pt() << '\n';}
+        if(_debug){std::cout << "VETO: remove first subjet with pt  "<< cs.jets()[i].pt() << '\n';}
 
           cs.plugin_record_iB_recombination(i,dij);     //subjet i below pT sub?
           _rejected_subjets.push_back(cs.jets().at(i)); //save rejected subjets here
           nn.remove_jet(i);
           njets--;
         }
+        // --------- pt sub check for second subjet ----------
         if(cs.jets()[j].pt()<_pt_sub) { // check pt of second potential subjet
-    if(_debug){  std::cout << "VETO: remove second subjet with pt  "<< cs.jets()[j].pt() << '\n';}
+        if(_debug){  std::cout << "VETO: remove second subjet with pt  "<< cs.jets()[j].pt() << '\n';}
 
           cs.plugin_record_iB_recombination(j,dij);     //subjet j below pT sub?
           _rejected_subjets.push_back(cs.jets().at(j)); //save rejected subjets here
           nn.remove_jet(j);
           njets--;
         }
+        // --------- both subjets fulfill pt sub ------------
         if(cs.jets()[i].pt()>=_pt_sub && cs.jets()[j].pt()>=_pt_sub) {//both subjets have pT higher than the threshold ptsub
-      _found_subjets=true;
+        _found_subjets=true;
         cs.plugin_record_ij_recombination(i, j, dij, k);
         bool _masscondition = false;
         std::vector<PseudoJet> subjets_j;
         std::vector<PseudoJet> subjets_i;
+        // --------- prepare list of all subjets ------------
+        // save all subjets in list subjet_i and subjet_j
+        for(uint o=0;o<_jets.size();o++){ // for list of jets
+          if (_debug) {std::cout << "CASE 2: Loop over jets to store subjets " << '\n';}
+          if(_jets[o].user_index()==j) { // jet j is in list
+            subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
+            if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
+          }
+          if( _jets[o].user_index()==i){ // jet i is in list
+            if (_debug) {std::cout << "Jet i has a subjet " << '\n';}
+            subjets_i.push_back(_jets[o]);
+          }
+        }
+        // if there was no subjet -> save pseudojet in list
+        if(subjets_j.size() == 0) {
+          subjets_j.push_back(cs.jets()[j]);
+          if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
+        }
+        if(subjets_i.size() == 0){
+          subjets_i.push_back(cs.jets()[i]);
+          if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
+        }
+        // --------- check mu condition --------------
         // CASE 1: no subjets stored previously
         if (_jets.size()==0) {
           if (_debug) {std::cout << "CASE 1: no jets stored yet, check mass condition for pseudojets that should be clustered. " << '\n';}
@@ -368,33 +394,9 @@ namespace contrib {
           double mcombj = abs(combj.m());
           if(mcombj > _mu){_masscondition=true;}
         }
-        // CASE 2: subjets stored previously
+        // CASE 2: at least one subjet stored previously
         // Check mass threshold for all combinations of subjets
         else{
-          // find all previously stored subjets
-          for(uint o=0;o<_jets.size();o++){ // for list of jets
-            if (_debug) {
-              std::cout << "CASE 2: Loop over jets to store subjets " << '\n';
-            }
-            if(_jets[o].user_index()==j) { // jet j is in list
-              subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
-              if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
-            }
-
-            if( _jets[o].user_index()==i){ // jet i is in list
-              if (_debug) {std::cout << "Jet i has a subjet " << '\n';}
-              subjets_i.push_back(_jets[o]);
-            }
-          }
-          if(subjets_j.size() == 0) {
-            subjets_j.push_back(cs.jets()[j]);
-            if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
-          }
-          if(subjets_i.size() == 0){
-            subjets_i.push_back(cs.jets()[i]);
-            if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
-          }
-
           for (size_t n = 0; n < subjets_j.size(); n++) {
             for (size_t m = 0; m < subjets_i.size(); m++) {
               PseudoJet combj = subjets_j[n]+subjets_i[m];
@@ -406,7 +408,8 @@ namespace contrib {
               }
             }
           }
-      } // end at least one jet has subjets
+        } // end at least one jet has subjets
+        // ----------- mass condition fulfilled -----------------
         // if the mass condition was fulfilled for at least one pair of subjets
         if(_masscondition){// code body copied from old implementation -> store subjets
           if(_debug){std::cout << "masscut fullfilled, store subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
@@ -433,71 +436,55 @@ namespace contrib {
             }
             nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
         } // end if mu
-
+        // ----------- mass condition not fulfilled -----------------
         // if no combination of subjets fullfills mcombj>mu
         else{
-          if(_debug){std::cout << "masscut not fullfilled, subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
-
-            // 1. ------------handle single particles, that are not in the jet --------------
-            // TODO !
-           // if (!(_jets.size()==0) && (subjets_j.size() == 1 || subjets_i.size() == 1)) { // at least one subjet was already stored && one subjet list includes
-           //   std::cout << "-----Handle lonely particle -------" << '\n';
-           //   //only the lonely particle
-           //    // find closest subjet (with index i)
-           //    double dist;
-           //    double min_dist = 100;
-           //    PseudoJet closest_subjet;
-           //    int position;
-           //    PseudoJet lonely_jet = subjets_j.at(0);
-           //    int sub_index = i;
-           //    int lonely_jet_index = j;
-           //    if (subjets_i.size() == 1) {
-           //      sub_index = j;
-           //      lonely_jet_index = i;
-           //      lonely_jet = subjets_i.at(0);
-           //    }
-           //    for(uint o=0;o<_jets.size();o++){ // go through all stored jets
-           //      if(!(_jets[o].user_index() == sub_index)) continue;
-           //        dist = lonely_jet.delta_R(_jets[o]);
-           //        if (dist < min_dist) {
-           //            if (_debug) {std::cout << "dist < min_dist " << '\n';}
-           //          min_dist = dist;
-           //          closest_subjet = _jets[o];
-           //          position = o;
-           //        }
-           //    }
-           //    // merge the particle into the clostest subjet (if the jet has subjets)
-           //      JetDefinition jet_def;
-           //      jet_def = cs.jet_def();
-           //      const JetDefinition::Recombiner* recombiner;
-           //      recombiner = jet_def.recombiner();
-           //      recombiner->recombine(lonely_jet, _jets[position], _jets[position]); // combine jet 1 and 2 and save into 3
-           //      _jets.erase(_jets.begin()+lonely_jet_index); // TODO
-           //
-           //      nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
-           //
-           //    }
-            //------------END handle single particles --------------------
-
-          //else{ // 2. no lonely particle
-            std::cout << "Masscondition not fulfilled, combine jets" << '\n';
-            nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
-            bool particle_merged=false;
+          if(_debug){std::cout << "masscut not fullfilled, combine jets with with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
+          nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+          bool particle_merged=false;
+          if (subjets_i.size() + subjets_j.size() > 2) { // we already stored more than two pseudojets / subjets
+            if(_debug){std::cout << "Masscondition not fulfilled, more than one subjet! " << '\n';}
+             double dist;
+             double min_dist = 100;
+             PseudoJet closest_subjet;
+             int position;
+             PseudoJet lonely_jet = subjets_j.at(0);
+             int sub_index = i;
+             if (subjets_i.size() == 1) {
+               sub_index = j;
+               lonely_jet = subjets_i.at(0);
+             }
+             for(uint o=0;o<_jets.size();o++){ // go through all stored jets -> find closest_subjet
+               if(!(_jets[o].user_index() == sub_index)) continue;
+                 dist = lonely_jet.delta_R(_jets[o]);
+                 if (dist < min_dist) {
+                   min_dist = dist;
+                   closest_subjet = _jets[o];
+                   position = o;
+                 }
+             }
+             for(uint o=0;o<_jets.size();o++){ // for list of jets, check if one pseudojet is already a stored subjet
+                 _jets[position]=cs.jets()[k]; // overwrite the old subjet with the new jet
+                 _jets[position].set_user_index(k);
+                 particle_merged = true;
+               }
+             } // end handle case if there have been subjets already stored
+            else{ // in any case only one subjet possible
             for(uint o=0;o<_jets.size();o++){ // for list of jets, check if one pseudojet is already a stored subjet
               if(_jets[o].user_index()==j && !particle_merged) { // jet j is in list of subjets
-                std::cout << "Masscondition not fulfilled, merge particle into already existing subjet j " << '\n';
+                if(_debug){std::cout << "Masscondition not fulfilled, merge particle into already existing subjet j " << '\n';}
                 _jets[o]=cs.jets()[k]; // overwrite the old subjet with the new jet
                 _jets[o].set_user_index(k);
                 particle_merged = true;
               }
               if( _jets[o].user_index()==i && !particle_merged){ // jet i is in list
-                std::cout << "Masscondition not fulfilled, merge particle into already existing subjet i " << '\n';
+                if(_debug){std::cout << "Masscondition not fulfilled, merge particle into already existing subjet i " << '\n';}
                 _jets[o]=cs.jets()[k]; // overwrite the old subjet with the new jet
                 _jets[o].set_user_index(k);
                 particle_merged = true;
               }
             } // end list of jets
-          //}
+          }
         } // end mu not fulfilled
         njets--;
       } // end ptsub check
