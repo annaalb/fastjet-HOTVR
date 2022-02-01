@@ -188,10 +188,11 @@ namespace contrib {
   template<typename NN>
   void HOTVR::NN_clustering(ClusterSequence &cs, NN &nn) const{
     // ANNA
-    bool _debug=false; //bool for debug option, that gives couts and warnings
+    bool _debug=true; //bool for debug option, that gives couts and warnings
     bool _found_subjets=false; // counts if the algorithm finds subjets -> for debugging
     // loop over pseudojets
     int njets = cs.jets().size();
+    std::cout << "HOTVR njets "<< njets << '\n';
     while (njets > 0) { // combine jets untill the list is empty
       bool existing_i=false;
       bool existing_j=false;
@@ -339,28 +340,10 @@ namespace contrib {
       if(_debug){std::cout << "entering VETO" << '\n';}
 
         k=-1;
-        // --------- pt sub check for first subjet ----------
-        if(cs.jets()[i].pt()<_pt_sub) { // check pt of first potential subjet
-        if(_debug){std::cout << "VETO: remove first subjet with pt  "<< cs.jets()[i].pt() << '\n';}
-
-          cs.plugin_record_iB_recombination(i,dij);     //subjet i below pT sub?
-          _rejected_subjets.push_back(cs.jets().at(i)); //save rejected subjets here
-          nn.remove_jet(i);
-          njets--;
-        }
-        // --------- pt sub check for second subjet ----------
-        if(cs.jets()[j].pt()<_pt_sub) { // check pt of second potential subjet
-        if(_debug){  std::cout << "VETO: remove second subjet with pt  "<< cs.jets()[j].pt() << '\n';}
-
-          cs.plugin_record_iB_recombination(j,dij);     //subjet j below pT sub?
-          _rejected_subjets.push_back(cs.jets().at(j)); //save rejected subjets here
-          nn.remove_jet(j);
-          njets--;
-        }
-        // --------- both subjets fulfill pt sub ------------
-        if(cs.jets()[i].pt()>=_pt_sub && cs.jets()[j].pt()>=_pt_sub) {//both subjets have pT higher than the threshold ptsub
-        _found_subjets=true;
         cs.plugin_record_ij_recombination(i, j, dij, k);
+        nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+
+        _found_subjets=true;
         bool _masscondition = false;
         std::vector<PseudoJet> subjets_j;
         std::vector<PseudoJet> subjets_i;
@@ -434,13 +417,13 @@ namespace contrib {
               _jets.push_back(cs.jets()[i]);
               _jets[_jets.size()-1].set_user_index(k);
             }
-            nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+          //  nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
         } // end if mu
         // ----------- mass condition not fulfilled -----------------
         // if no combination of subjets fullfills mcombj>mu
         else{
           if(_debug){std::cout << "masscut not fullfilled, combine jets with with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
-          nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+//nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
           bool particle_merged=false;
           if (subjets_i.size() + subjets_j.size() > 2) { // we already stored more than two pseudojets / subjets
             if(_debug){std::cout << "Masscondition not fulfilled, more than one subjet! " << '\n';}
@@ -487,11 +470,12 @@ namespace contrib {
           }
         } // end mu not fulfilled
         njets--;
-      } // end ptsub check
         break;
       } // end VETO
 
       // case NOVETO: {  //above massjump threshold mu:  no massjump found
+      //   if(_debug){std::cout << "entering NOVETO for MJ" << '\n';}
+      //
       //   if(cs.jets()[i].m()<cs.jets()[j].m()) {
       //     cs.plugin_record_iB_recombination(i,dij);
       //     _soft_cluster.push_back(cs.jets()[i]); //fill vector with jets that were rejected
@@ -589,6 +573,10 @@ namespace contrib {
   // check the mass jump terminating veto
   // this function is taken from ClusteringVetoPlugin 1.0.0
   HOTVR::VetoResult HOTVR::CheckVeto(const PseudoJet& j1, const PseudoJet& j2) const {
+    bool _debug=true;
+
+    if(_debug){std::cout << "-----------------Check Veto MJ -----------------------" << '\n';
+  }
 
     PseudoJet combj = j1+j2;
 
@@ -604,7 +592,7 @@ namespace contrib {
 
   // check the SoftDrop terminating veto
   HOTVR::VetoResult HOTVR::CheckVeto_SoftDrop(const PseudoJet& j1, const PseudoJet& j2) const {
-    bool _debug=false;
+    bool _debug=true;
     PseudoJet combj = j1+j2;
     double pt = combj.pt();
     double pt2 = combj.pt2();
@@ -626,7 +614,7 @@ namespace contrib {
     double ptj2 = abs (j2.pt());
     double ptcomb = abs (ptj1+ptj2);
 
-    if(_debug){std::cout << "-----------------Check Veto-----------------------" << '\n';
+    if(_debug){std::cout << "-----------------Check Veto SD -----------------------" << '\n';
     std::cout << "pt of 1. Jet "<< ptj1 << "pt of 2. Jet "<< ptj2 << '\n';
     std::cout << "pt_threshold" <<_pt_threshold << '\n';
     std::cout << "pt "<< pt << '\n';
@@ -645,8 +633,7 @@ namespace contrib {
         return CLUSTER; // recombine
     }
     else {
-        if ( std::min(ptj1, ptj2) /ptcomb  >
-              _z_cut * std::pow((DeltaR / beam_R),_beta)) { //check SD condition
+        if ( std::min(ptj1, ptj2) /ptcomb  >  _z_cut * std::pow((DeltaR / beam_R),_beta)) { //check SD condition
           if(_debug){std::cout << ".............VETO............." << '\n';}
            return VETO; // if check pt > _ptsub + mu threshold for subjets, store subjets
         }
