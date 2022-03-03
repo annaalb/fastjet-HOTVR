@@ -216,20 +216,23 @@ namespace contrib {
       _rap = jet.rap();
       _phi = jet.phi();
       double pt2 = jet.pt2();
+      double m2 = jet.m2();
       // get the effective "radius" Reff
     //  _beam_R2 = info->rho2()/pt2;
 
-      _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
+      //_beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
+      _beam_R2 = info->rho2()*m2/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent and mass dependent
 
       if      (_beam_R2 > info->max_r2()){ _beam_R2 = info->max_r2();}
       else if (_beam_R2 < info->min_r2()){ _beam_R2 = info->min_r2();}
 
       // std::cout << "---------Alpha: " << info->alpha() << '\n';
       // std::cout << "Rho2: " << info->rho2() << '\n';
-      // std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
+       //std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
       //
       // std::cout << "pt2: " << pt2 << '\n';
       // std::cout << "pt: " << std::sqrt(pt2) << '\n';
+       //std::cout << "m: " << std::sqrt(m2) << '\n';
       //
       // std::cout << "beam_R2 "<< _beam_R2 << '\n';
       // std::cout << "beam_R "<< std::sqrt(_beam_R2) << '\n';
