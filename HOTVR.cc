@@ -277,12 +277,24 @@ namespace contrib {
       switch ( CheckVeto_SoftDrop ( cs.jets()[i],cs.jets()[j] ) ) {
 
       case CLUSTER: {
-      //  std::cout << "entering CLUSTER" << '\n';
+        if(_debug){
+          std::cout << "entering CLUSTER" << '\n';
+          std::cout << "Jet i pt = "<< cs.jets()[i].pt() << '\n';
+          std::cout << "Jet j pt = "<< cs.jets()[j].pt() << '\n';
+
+        }
 	      k=-1;
 	      cs.plugin_record_ij_recombination(i, j, dij, k);
 //cluster i and j //ANNA k is the index for the combined jet, that is set by the function
 	      nn.merge_jets(i, j, cs.jets()[k], k);
 	      njets--;
+
+        if(_debug){
+          std::cout << "End CLUSTER" << '\n';
+          std::cout << "Jet k pt = "<< cs.jets()[k].pt() << '\n';
+
+        }
+
 	      break;
       }
 
@@ -597,14 +609,26 @@ namespace contrib {
     double pt = combj.pt();
     double pt2 = combj.pt2();
     double m2 = combj.m2();
-    //double beam_R2 = _rho2/pt2;
-    //double beam_R2 = _rho2/pow(pt2,_alpha); // calculate effective radius with tunable exponent
-    double beam_R2 = _rho2*m2/pow(pt2,_alpha); // calculate effective radius depending on mass and pt
+    double m = sqrt(m2);
+    double beam_R2;
+    double beam_R;
+    //beam_R2 = _rho2/pt2;
+    //beam_R2 = _rho2/pow(pt2,_alpha); // calculate effective radius with tunable exponent
+    //beam_R2 = _rho2*m2/pow(pt2,_alpha); // calculate effective radius depending on mass and pt
+
+    if (m2 < pow(30,2) ) {
+      beam_R2 = 36000/pow(pt2,_alpha); // TODO mit und ohne
+    }
+    else{
+      //beam_R2 = _rho2*m2/pow(pt2,_alpha);
+      beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
+      beam_R2 = beam_R*beam_R;
+    }
 
     if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
     else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
 
-    double beam_R = std::sqrt(beam_R2);
+    beam_R = std::sqrt(beam_R2);
     double DeltaR = j1.delta_R(j2);
 
     double ptj1 = abs (j1.pt()); // pt values are always >0
@@ -629,7 +653,7 @@ namespace contrib {
 
     //if (ptj1 < _pt_threshold || ptj2 < _pt_threshold){ //ANNA 27.08. if we use this option we find subjets but do not store them, because more particles can be clustered to these jets and so the information about the subjets gets lost :(
     //if (ptcomb < _pt_threshold){ // ANNA leads to ca 20 subjets
-    if(std::min(ptj1, ptj2)< 10e-5 ){ // keep ghosts
+    if(std::min(ptj1, ptj2)< 10e-50 ){ // keep ghosts
         if(_debug){std::cout << ".............CLUSTER ghosts ............." << '\n';}
         return CLUSTER; // recombine
     }
