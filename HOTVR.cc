@@ -619,15 +619,15 @@ namespace contrib {
     // TODO nur If
     // nur else
     // nur else mit m = 170
-    if (m2 < pow(30,2) ) {
-      beam_R2 = 36000/pow(pt2,_alpha); // TODO mit und ohne
-    }
-    else{
+    // if (m2 < pow(30,2) ) {
+    //   beam_R2 = 36000/pow(pt2,_alpha); // TODO mit und ohne
+    // }
+    // else{
       //beam_R2 = _rho2*m2/pow(pt2,_alpha);
-      //m = 170;
+      m = 170;
       beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
       beam_R2 = beam_R*beam_R;
-    }
+  //  }
 
     if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
     else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
