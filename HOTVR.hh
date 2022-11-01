@@ -227,15 +227,15 @@ namespace contrib {
     //  _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
     //  _beam_R2 = info->rho2()*m2/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent and mass dependent
 
-      // if (m2 < pow(30,2) ) {
-      //   _beam_R2 = 36000/pow(pt2,info->alpha());
-      // }
-      // else{
+      if (m2 < pow(30,2) ) {
+        _beam_R2 = 36000/pow(pt2,info->alpha());
+      }
+      else{
         //_beam_R2 = info->rho2()*m2/pow(pt2,info->alpha());
-        m = 170;
+        //m = 170;
         beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
         _beam_R2 = beam_R*beam_R;
-    //  }
+      }
 
       if      (_beam_R2 > info->max_r2()){ _beam_R2 = info->max_r2();}
       else if (_beam_R2 < info->min_r2()){ _beam_R2 = info->min_r2();}
