@@ -221,15 +221,18 @@ namespace contrib {
       double m2 = jet.m2();
       double m = sqrt(m2);
       double beam_R;
+      double beam_R2;
       // get the effective "radius" Reff
     //  _beam_R2 = info->rho2()/pt2;
 
     //  _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
     //  _beam_R2 = info->rho2()*m2/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent and mass dependent
 
-      if (m2 < pow(30,2) ) {
-        _beam_R2 = 36000/pow(pt2,info->alpha());
-      }
+    if(pt< 10e-50 ){ // keep ghosts
+  //  if (m2 < pow(30,2) ) {
+      //beam_R2 = 36000/pow(pt2,_alpha);
+      beam_R2 = pow(2*pi,2);
+    }
       else{
         //_beam_R2 = info->rho2()*m2/pow(pt2,info->alpha());
         //m = 170;
