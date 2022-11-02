@@ -620,6 +620,7 @@ namespace contrib {
   //  if (m2 < pow(30,2) ) {
       //beam_R2 = 36000/pow(pt2,_alpha);
       beam_R2 = pow(2*pi,2);
+      if(_debug){std::cout << ".............Radius for ghosts ............." << '\n';}
     }
      else{
       //beam_R2 = _rho2*m2/pow(pt2,_alpha);
