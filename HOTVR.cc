@@ -612,11 +612,16 @@ namespace contrib {
     double m = sqrt(m2);
     double beam_R2;
     double beam_R;
+    double DeltaR = j1.delta_R(j2);
+
+    double ptj1 = abs (j1.pt()); // pt values are always >0
+    double ptj2 = abs (j2.pt());
+    double ptcomb = abs (ptj1+ptj2);
     //beam_R2 = _rho2/pt2;
     //beam_R2 = _rho2/pow(pt2,_alpha); // calculate effective radius with tunable exponent
     //beam_R2 = _rho2*m2/pow(pt2,_alpha); // calculate effective radius depending on mass and pt
 
-    if(pt< 10e-50 ){ // keep ghosts
+    if(ptj1< 10e-50 && ptj2< 10e-50){ // keep ghosts
   //  if (m2 < pow(30,2) ) {
       //beam_R2 = 36000/pow(pt2,_alpha);
       beam_R2 = pow(2*pi,2);
@@ -633,11 +638,6 @@ namespace contrib {
     else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
 
     beam_R = std::sqrt(beam_R2);
-    double DeltaR = j1.delta_R(j2);
-
-    double ptj1 = abs (j1.pt()); // pt values are always >0
-    double ptj2 = abs (j2.pt());
-    double ptcomb = abs (ptj1+ptj2);
 
     if(_debug){std::cout << "-----------------Check Veto SD -----------------------" << '\n';
     std::cout << "Alpha " << _alpha << '\n';
