@@ -604,7 +604,7 @@ namespace contrib {
 
   // check the SoftDrop terminating veto
   HOTVR::VetoResult HOTVR::CheckVeto_SoftDrop(const PseudoJet& j1, const PseudoJet& j2) const {
-    bool _debug=false;
+    bool _debug=true;
     PseudoJet combj = j1+j2;
     double pt = combj.pt();
     double pt2 = combj.pt2();

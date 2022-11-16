@@ -221,7 +221,6 @@ namespace contrib {
       double m2 = jet.m2();
       double m = sqrt(m2);
       double beam_R;
-      double beam_R2;
       // get the effective "radius" Reff
     //  _beam_R2 = info->rho2()/pt2;
 
@@ -231,13 +230,16 @@ namespace contrib {
     if(pt< 10e-50 ){ // keep ghosts
   //  if (m2 < pow(30,2) ) {
       //beam_R2 = 36000/pow(pt2,_alpha);
-      beam_R2 = pow(2*pi,2);
+      _beam_R2 = pow(2*pi,2);
+      std::cout << "HOTVR.hh GHOST radius^2" << _beam_R2 << '\n';
     }
       else{
         //_beam_R2 = info->rho2()*m2/pow(pt2,info->alpha());
         //m = 170;
         beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
         _beam_R2 = beam_R*beam_R;
+        std::cout << "HOTVR.hh radius = " << beam_R << '\n';
+
       }
 
       if      (_beam_R2 > info->max_r2()){ _beam_R2 = info->max_r2();}
