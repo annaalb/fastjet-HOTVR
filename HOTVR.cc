@@ -77,6 +77,7 @@ namespace contrib {
   //  - clust_type    whether to use CA-like, kT-like, or anti-kT-like distance measure
   //                  note that subjet finding has only been tested with CA-like clustering
   //  - strategy      one of Best (the default), N2Tiled , N2Plain or NNH
+  /*
   HOTVR::HOTVR(double mu, double theta, double min_r, double max_r, double rho, double pt_sub, double clust_type, Strategy requested_strategy)
     :_mu(mu), _theta(theta), _min_r2(min_r*min_r), _max_r2(max_r*max_r), _max_r(max_r),
      _rho2(rho*rho), _pt_sub(pt_sub),
@@ -104,6 +105,7 @@ namespace contrib {
 #endif
 
   }
+  */
   /// ANNA: Constructor that sets HOTVR algorithm parameters for HOTVR with Softdrop
   ///  - beta          soft drop angle dependence
   ///  - z_cut         soft drop strength
@@ -118,7 +120,7 @@ namespace contrib {
   ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy,
   ///                  for earlier FastJet versions NNH is used
   ///  - alpha         change the slope of effective radius (default alpha=1)
-  HOTVR::HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r,double rho, double pt_sub, double mu, double clust_type, double alpha,
+  HOTVR::HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r, double rho, double pt_sub, double mu, double clust_type, double alpha,
     Strategy requested_strategy):
       _beta(beta), _z_cut(z_cut), _pt_threshold(pt_threshold), _min_r2(min_r*min_r), _max_r2(max_r*max_r), _max_r(max_r),
      _rho2(rho*rho), _pt_sub(pt_sub), _mu(mu),
@@ -130,10 +132,12 @@ namespace contrib {
       _already_printed = true;
     }
 
+    _debug=false; //bool for debug option, that gives couts and warnings
+
     // some sanity checks
 // ANNA: Do we set bounds on beta and z_cut?
   //  if (beta < 0.0) throw Error("HOTVR: beta must be positive.");
-  //  if (z_cut > 1.0 || z_cut < 0.0) throw Error("HOTVR: z_cut must be in [0.0,1.0].");
+    if (z_cut > 1.0 || z_cut < 0.0) throw Error("HOTVR: z_cut must be in [0.0,1.0].");
     if (pt_threshold < 0.0) throw Error("HOTVR: pT threshold for Softdrop condition must be positive.");
     if (max_r < 0.0) throw Error("HOTVR: Maximum radius must be positive.");
     if (min_r < 0.0) throw Error("HOTVR: Minimum radius must be positive.");
@@ -187,80 +191,136 @@ namespace contrib {
   // the actual implementation of the clustering using the NN helpers
   template<typename NN>
   void HOTVR::NN_clustering(ClusterSequence &cs, NN &nn) const{
+
     // ANNA
-    bool _debug=false; //bool for debug option, that gives couts and warnings
     bool _found_subjets=false; // counts if the algorithm finds subjets -> for debugging
+
     // loop over pseudojets
     int njets = cs.jets().size();
-    if (_debug) {std::cout << "HOTVR njets "<< njets << '\n';}
+    if (_debug) {std::cout << "NN_clustering: HOTVR number of pseudojets = " << njets << '\n';}
     while (njets > 0) { // combine jets untill the list is empty
       bool existing_i=false;
       bool existing_j=false;
       int i(-1), j(-1);
       double dij = nn.dij_min(i, j); //ANNA returns the dij_min and indices i and j for the corresponding jets.
-// If j<0 then i recombines with the beam
-      if(_debug){std::cout << "dij is "<< dij << '\n';}
+
+      // If j<0 then i recombines with the beam
+      if(_debug){
+        std::cout << "\nNext clustering step. \n";
+        std::cout << "dij is "<< dij << '\n';
+      }
+
       if(j < 0) {//diB is smallest
         if(_debug){std::cout << ".................d_iB is smallest............. j = "<<j << '\n';}
 	      cs.plugin_record_iB_recombination(i,dij);
+
 	      _jets.push_back(cs.jets()[i]); //ANNA the last pseudojet (final HOTVR jet) i is stored as jet
 	      _jets[_jets.size()-1].set_user_index(-2); //set the user index of the jet to -2
 
 	      bool set=false;
 	      std::vector<fastjet::PseudoJet> subjets;
 
+        // store the jet only if it has pt > jetptmin
+        bool keep_jet = false;
+        if (cs.jets()[i].pt() > _jetptmin ){
+          keep_jet = true;
+        }
+
         // now go through all stored jets
+        if(_debug){
+          std::cout << "Let's store jet with index = " << i << " and pt = " << cs.jets()[i].pt() << '\n';
+          std::cout << "Minimum jet pT should be " << _jetptmin << " and min subjet pT = " << _pt_sub << '\n';
+        }
 	      for(uint o=0;o<_jets.size();o++){ //ANNA go through all stored jets
 	        if(_jets[o].user_index()==i) { // find the corresponding subjets (same user index)
-            if(_debug){std::cout << "User index ==i " << _jets[o].user_index() << '\n';}
+
+            if(_debug){
+              std::cout << "jet index o = " << o << std::endl;
+              std::cout << "User index = " << _jets[o].user_index() << '\n';
+            }
 	          _jets[_jets.size()-1].set_user_index(i*100); // combined jet is the last one in the list of jets -> index i*100
+
 	          if(!set) { // save the jet candidates only once
-	            _hotvr_jets.push_back(cs.jets()[i]);//save jet candidates (jets with massjumps / softdrop)
-	            _hotvr_jets[_hotvr_jets.size()-1].set_user_index(_hotvr_jets.size()-1);
-              if(_debug){std::cout << "Hotvr jets size " << _hotvr_jets.size() << '\n';}
-              //ANNA user index = position of HOTVR jet
-	            set=true;
+              // store the jet only if it has pt > jetptmin
+              if ( keep_jet ){
+	              _hotvr_jets.push_back(cs.jets()[i]);//save jet candidates (jets with massjumps / softdrop)
+	              _hotvr_jets[_hotvr_jets.size()-1].set_user_index(_hotvr_jets.size()-1);
+                if(_debug){std::cout << "HOTVR jet stored. New size of HOTVR list = " << _hotvr_jets.size() << '\n';}
+                //ANNA user index = position of HOTVR jet
+              } else {
+                _rejected_subjets.push_back(cs.jets().at(i)); // store in rejected subjets if pt < ptmin
+                if(_debug){std::cout << "HOTVR jet rejected because of jetptmin cut." << '\n';}
+              }
+              set=true; // we have stored or discarded the jet (pushed into rejected_subjets)
 	          }
-	          subjets.push_back(_jets[o]);//save subjets if the user index is i
+
+            // let's store the subjet if we keep the jet, otherwise discard it as well
+            if (keep_jet){
+               // check if the subjet pt condition is fulfilled
+               if(_jets[o].pt() > _pt_sub) {
+                 if(_debug){std::cout << "Remove subjet" << o << " with pt "<< _jets[o].pt() << '\n';}
+	               subjets.push_back(_jets[o]);  // save subjets if the user index is i
+               } else {
+                 _rejected_subjets.push_back(_jets[o]); // store in rejected subjets if pt < ptsub
+               }
+             }
 	        } //end if user index = i
         } // end jet loop
+
+
         //ANNA if the previous condition was fulfilled, means the jet has subjets
         if(_jets[_jets.size()-1].user_index()!=-2) { // if the HOTVR jet has subjets
 
-          if(_debug){std::cout << "user index != 2 is "<< _jets[_jets.size()-1].user_index() << '\n';}
-	        _subjets.push_back(sorted_by_pt(subjets));
-	        _hotvr_jets.at(_hotvr_jets.size()-1).set_user_info(
-              new HOTVRinfo(_hotvr_jets.at(_hotvr_jets.size()-1),
-              _subjets[_hotvr_jets.at(_hotvr_jets.size()-1).user_index()]) );
-          if(_debug){std::cout << "Set the HOTVR info." << '\n';}
+          if(_debug){std::cout << "user index != -2 is " << _jets[_jets.size()-1].user_index() << '\n';}
+          if ( keep_jet ){
+	          _subjets.push_back(sorted_by_pt(subjets));
+	          _hotvr_jets.at(_hotvr_jets.size()-1).set_user_info(
+                new HOTVRinfo(_hotvr_jets.at(_hotvr_jets.size()-1),
+                _subjets[_hotvr_jets.at(_hotvr_jets.size()-1).user_index()]) );
+          }
 
           if(_debug){//begin only debug
-          for (size_t l = 0; l < _subjets.size(); l++) {
-           std::cout << "Size of the subjet list " <<   _subjets[l].size() << '\n';
-           if (_subjets[l].size()==1 && _subjets[l].at(0).m() > _mu) { // check mass for jets with only 1 subjet
-             std::cout << "WARNING: found jet with 1 subjet, but has m="<< _subjets[l].at(0).m() << '\n';
-           }
-            for (size_t m = 0; m < _subjets[l].size(); m++) {
+            std::cout << "Set the HOTVR info for jet with pt = " << _hotvr_jets.at(_hotvr_jets.size()-1).pt() << '\n';
+            for (size_t l = 0; l < _subjets.size(); l++) {
+              std::cout << "Size of the subjet list " <<   _subjets[l].size() << '\n';
+              if (_subjets[l].size()==1 && _subjets[l].at(0).m() > _mu) { // check mass for jets with only 1 subjet
+                std::cout << "WARNING: found jet with 1 subjet, but has m="<< _subjets[l].at(0).m() << '\n';
+              }
+              for (size_t m = 0; m < _subjets[l].size(); m++) {
                 std::cout << " pt "<< _subjets[l].at(m).pt() << ", mass "<<_subjets[l].at(m).m() << '\n';
                 if(_subjets[l].at(m).pt() < _pt_threshold){
                   std::cout << "WARNING subjet pt smaller pt threshold!" << '\n';
                 }
+              }
             }
-          }
           } //debug end
+
         } // end "if the HOTVR jet has subjets"
-        else { //all jets that have no subjets
-        //  if(_debug){std::cout << "fill rejected cluster, size =  "<< _rejected_cluster.size() << '\n';
-        //  std::cout << "User index "<< cs.jets()[i].user_index()<< " pt "<<cs.jets()[i].pt() << '\n';}
-          _rejected_cluster.push_back(cs.jets()[i]); //fill vector with jets that have no massjumps
-// Anna: this part is new!
-          subjets.push_back(cs.jets()[i]); // save the single HOTVR jet as subjet
-          _subjets.push_back(subjets); // add subjets to _subjets
-          _hotvr_jets.push_back(cs.jets()[i]); //add jets that have no softjumps to hotvrjets list
-          _hotvr_jets[_hotvr_jets.size()-1].set_user_index(_hotvr_jets.size()-1);
-          _hotvr_jets.at(_hotvr_jets.size()-1).set_user_info( // save the hotvr jet as subjet
-              new HOTVRinfo(_hotvr_jets.at(_hotvr_jets.size()-1),
-              _subjets[_hotvr_jets.at(_hotvr_jets.size()-1).user_index()]) );
+
+        else { // store HOTVR jets that don't have subjets, but large pT
+          if(_debug){
+            std::cout << "Jet with user index "<< cs.jets()[i].user_index()<< " has no subjets. pt = " << cs.jets()[i].pt() << '\n';
+          }
+
+          if ( keep_jet ){
+            if(_debug){
+              std::cout << "Store HOTVR jet without subjets in rejected clusters." << '\n';
+              std::cout << "Subjets size = " << subjets.size() << " HOTVR size = " << _hotvr_jets.size() << "\n";
+            }
+            // discard HOTVR jets without subjets in rejected clusters, can be accessed easily later
+            _rejected_cluster.push_back(cs.jets()[i]);
+            //subjets.push_back(cs.jets()[i]); // save the single HOTVR jet as subjet
+            //_subjets.push_back(subjets); // add subjets to _subjets
+            //_hotvr_jets.push_back(cs.jets()[i]); //add jets that have no softjumps to hotvrjets list
+            //_hotvr_jets[_hotvr_jets.size()-1].set_user_index(_hotvr_jets.size()-1);
+            //_hotvr_jets.at(_hotvr_jets.size()-1).set_user_info( // save the hotvr jet as subjet
+            //    new HOTVRinfo(_hotvr_jets.at(_hotvr_jets.size()-1),
+            //    _subjets[_hotvr_jets.at(_hotvr_jets.size()-1).user_index()]) );
+          } else {
+            if(_debug){ std::cout << "Discard, but store in rejected subjets." << '\n'; }
+            _rejected_subjets.push_back(cs.jets()[i]); // store in rejected subjets if pt < jetptmin
+          }
+
         } // end "if the HOTVR jet has no subjets"
 
         nn.remove_jet(i);//remove jet from list
@@ -277,24 +337,12 @@ namespace contrib {
       switch ( CheckVeto_SoftDrop ( cs.jets()[i],cs.jets()[j] ) ) {
 
       case CLUSTER: {
-        if(_debug){
-          std::cout << "entering CLUSTER" << '\n';
-          std::cout << "Jet i pt = "<< cs.jets()[i].pt() << '\n';
-          std::cout << "Jet j pt = "<< cs.jets()[j].pt() << '\n';
-
-        }
+      //  std::cout << "entering CLUSTER" << '\n';
 	      k=-1;
 	      cs.plugin_record_ij_recombination(i, j, dij, k);
 //cluster i and j //ANNA k is the index for the combined jet, that is set by the function
 	      nn.merge_jets(i, j, cs.jets()[k], k);
 	      njets--;
-
-        if(_debug){
-          std::cout << "End CLUSTER" << '\n';
-          std::cout << "Jet k pt = "<< cs.jets()[k].pt() << '\n';
-
-        }
-
 	      break;
       }
 
@@ -348,21 +396,22 @@ namespace contrib {
 	  //     break;
     //   }
 
-      case VETO: { // ANNA SoftDrop case: soft drop found, added a mass criterion here
-      if(_debug){std::cout << "entering VETO" << '\n';}
+      case NOVETO: { // ANNA SoftDrop case: soft drop found, added a mass criterion here
+      if(_debug){std::cout << "entering NOVETO" << '\n';}
 
         k=-1;
+
         cs.plugin_record_ij_recombination(i, j, dij, k);
         nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
 
         _found_subjets=true;
-        bool _masscondition = false;
+        bool masscondition = false;
         std::vector<PseudoJet> subjets_j;
         std::vector<PseudoJet> subjets_i;
+
         // --------- prepare list of all subjets ------------
-        // save all subjets in list subjet_i and subjet_j
+        // save all previously stored subjets in list subjet_i and subjet_j
         for(uint o=0;o<_jets.size();o++){ // for list of jets
-        //  if (_debug) {std::cout << "CASE 2: Loop over jets to store subjets " << '\n';}
           if(_jets[o].user_index()==j) { // jet j is in list
             subjets_j.push_back(_jets[o]); // save all jets with index j in list of subjets of jet j
             if (_debug) {std::cout << "Jet j has a subjet " << '\n';}
@@ -375,39 +424,43 @@ namespace contrib {
         // if there was no subjet -> save pseudojet in list
         if(subjets_j.size() == 0) {
           subjets_j.push_back(cs.jets()[j]);
-          if (_debug) {std::cout << "Jet j has no subjet, store jet in list of subjets" << '\n';}
+          if (_debug) {std::cout << "Jet j has no subjet, tale the jet itself to appear in list of subjets_j" << '\n';}
         }
         if(subjets_i.size() == 0){
           subjets_i.push_back(cs.jets()[i]);
-          if (_debug) {std::cout << "Jet i has no subjet, store jet in list of subjets" << '\n';}
+          if (_debug) {std::cout << "Jet i has no subjet, take the jet itself to appear in list of subjets_i" << '\n';}
         }
+
         // --------- check mu condition --------------
         // CASE 1: no subjets stored previously
         if (_jets.size()==0) {
           if (_debug) {std::cout << "CASE 1: no jets stored yet, check mass condition for pseudojets that should be clustered. " << '\n';}
           PseudoJet combj = cs.jets()[i] + cs.jets()[j];
           double mcombj = abs(combj.m());
-          if(mcombj > _mu){_masscondition=true;}
+          if(mcombj > _mu){masscondition=true;}
         }
         // CASE 2: at least one subjet stored previously
         // Check mass threshold for all combinations of subjets
         else{
+          if (_debug) {std::cout << "CASE 2: loop over all subjets of jets i and j and calculate pairwise mass.\n";}
           for (size_t n = 0; n < subjets_j.size(); n++) {
             for (size_t m = 0; m < subjets_i.size(); m++) {
               PseudoJet combj = subjets_j[n]+subjets_i[m];
               double mcombj = abs(combj.m());
-              if (_debug) {std::cout << "check mass condition, mcombj = " << mcombj << '\n';}
+              if (_debug) {std::cout << "check mass condition with different subjets, mcombj = " << mcombj << '\n';}
               if(mcombj > _mu){
-                _masscondition=true;
+                masscondition=true;
                 break;
               }
             }
           }
         } // end at least one jet has subjets
+
         // ----------- mass condition fulfilled -----------------
+        // we have found a pair of subjets with mij > mu
         // if the mass condition was fulfilled for at least one pair of subjets
-        if(_masscondition){// code body copied from old implementation -> store subjets
-          if(_debug){std::cout << "masscut fullfilled, store subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
+        if(masscondition){// code body copied from old implementation -> store subjets
+          if(_debug){std::cout << "mass condition mij > mu fulfilled, store subjets with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
 
           // set all user indices to k, e.g i and j consist of subjets
             for(uint o=0;o<_jets.size();o++){ // for list of jets
@@ -430,19 +483,20 @@ namespace contrib {
               _jets[_jets.size()-1].set_user_index(k);
             }
           //  nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
-        } // end if mu
+        } // end if masscondition
+
         // ----------- mass condition not fulfilled -----------------
-        // if no combination of subjets fullfills mcombj>mu
-        else{
+        // no combination of subjets fullfills mij > mu
+        else {
           if(_debug){std::cout << "masscut not fullfilled, combine jets with with pt "<< cs.jets()[i].pt() << " and "<< cs.jets()[j].pt() << '\n';}
-//nn.merge_jets(i, j, cs.jets()[k], k); // combine jets
+//nn.mer  g_jets(i, j, cs.jets()[k], k); // combine jets
           bool particle_merged=false;
           if (subjets_i.size() + subjets_j.size() > 2) { // we already stored more than two pseudojets / subjets
             if(_debug){std::cout << "Masscondition not fulfilled, more than one subjet! " << '\n';}
              double dist;
              double min_dist = 100;
              PseudoJet closest_subjet;
-             int position;
+             int position = -1;
              PseudoJet lonely_jet = subjets_j.at(0);
              int sub_index = i;
              if (subjets_i.size() == 1) {
@@ -483,7 +537,7 @@ namespace contrib {
         } // end mu not fulfilled
         njets--;
         break;
-      } // end VETO
+      } // end NOVETO
 
       // case NOVETO: {  //above massjump threshold mu:  no massjump found
       //   if(_debug){std::cout << "entering NOVETO for MJ" << '\n';}
@@ -500,17 +554,17 @@ namespace contrib {
       //   njets--;
       // }
 
-      // ANNA: NOVETO in SoftDrop case
-      case NOVETO: {  //soft drop condition not fulfilled -> discard softer jet
-        if(_debug){std::cout << "entering NOVETO" << '\n';}
+      // ANNA: VETO in SoftDrop case
+      case VETO: {  //soft drop condition not fulfilled -> discard softer jet
+        if(_debug){std::cout << "entering VETO" << '\n';}
 	      if(cs.jets()[i].pt()<cs.jets()[j].pt()) {
-          if(_debug){std::cout << "NOVETO: removed 1. jet with pt "<< cs.jets()[i].pt() << '\n';
+          if(_debug){std::cout << "VETO: removed 1. jet with pt "<< cs.jets()[i].pt() << '\n';
           std::cout << "the other had a pt of "<< cs.jets()[j].pt() << '\n';}
 	        cs.plugin_record_iB_recombination(i,dij);
 	        _soft_cluster.push_back(cs.jets()[i]); //fill vector with jets that were rejected
 	        nn.remove_jet(i);
 	      } else {
-          if(_debug){std::cout << "NOVETO: removed 2. jet with pt "<<  cs.jets()[j].pt()<< '\n';
+          if(_debug){std::cout << "VETO: removed 2. jet with pt "<<  cs.jets()[j].pt()<< '\n';
           std::cout << "the other had a pt of "<< cs.jets()[i].pt() << '\n';}
 	        cs.plugin_record_iB_recombination(j,dij);
 	        _soft_cluster.push_back(cs.jets()[j]); //fill vector with jets that were rejected
@@ -559,7 +613,7 @@ namespace contrib {
 
   void HOTVR::print_banner(){
     std::cout << "#------------------------------------------------------------------------------\n";
-    std::cout << "#                                 HOTVR 1.0.0                                  \n";
+    std::cout << "#                                 HOTVR 2.0.0                                  \n";
     std::cout << "#                      T. Lapsien, R. Kogler, J. Haller                        \n";
     std::cout << "#                                arXiv:1606.04961                              \n";
     std::cout << "#                                                                              \n";
@@ -585,7 +639,6 @@ namespace contrib {
   // check the mass jump terminating veto
   // this function is taken from ClusteringVetoPlugin 1.0.0
   HOTVR::VetoResult HOTVR::CheckVeto(const PseudoJet& j1, const PseudoJet& j2) const {
-    bool _debug=false;
 
     if(_debug){std::cout << "-----------------Check Veto MJ -----------------------" << '\n';
   }
@@ -604,61 +657,50 @@ namespace contrib {
 
   // check the SoftDrop terminating veto
   HOTVR::VetoResult HOTVR::CheckVeto_SoftDrop(const PseudoJet& j1, const PseudoJet& j2) const {
-    bool _debug=true;
+
     PseudoJet combj = j1+j2;
     double pt = combj.pt();
     double pt2 = combj.pt2();
     double m2 = combj.m2();
-    double m = sqrt(m2);
-    double beam_R2;
-    double beam_R;
+    double beam_R2 = _rho2/pt2;
+    //double beam_R2 = _rho2/pow(pt2,_alpha); // calculate effective radius with tunable exponent
+    //double beam_R2 = _rho2*m2/pow(pt2,_alpha); // calculate effective radius depending on mass and pt
+
+    if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
+    else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
+
+    double beam_R = std::sqrt(beam_R2);
     double DeltaR = j1.delta_R(j2);
 
     double ptj1 = abs (j1.pt()); // pt values are always >0
     double ptj2 = abs (j2.pt());
     double ptcomb = abs (ptj1+ptj2);
-    //beam_R2 = _rho2/pt2;
-    //beam_R2 = _rho2/pow(pt2,_alpha); // calculate effective radius with tunable exponent
-    //beam_R2 = _rho2*m2/pow(pt2,_alpha); // calculate effective radius depending on mass and pt
 
-    if(ptj1< 10e-50 && ptj2< 10e-50){ // keep ghosts
-  //  if (m2 < pow(30,2) ) {
-      //beam_R2 = 36000/pow(pt2,_alpha);
-      beam_R2 = pow(2*pi,2);
-      if(_debug){std::cout << ".............Radius for ghosts ............." << '\n';}
+    double sd_left  = std::min(ptj1, ptj2)/ptcomb;
+    double sd_right = (_z_cut * std::pow((DeltaR / beam_R),_beta));
+
+    if(_debug){
+      std::cout << "-----------------Check Veto SD -----------------------" << '\n';
+      std::cout << "Alpha " << _alpha << '\n';
+      std::cout << "DeltaR " << DeltaR << '\n';
+      std::cout << "Beam R0 " << beam_R << '\n';
+      std::cout << "pt of 1. Jet "<< ptj1 << ", pt of 2. Jet "<< ptj2 << '\n';
+      std::cout << "pt_threshold " <<_pt_threshold << '\n';
+      std::cout << "pt "<< pt << '\n';
+      std::cout << "ptcomb "<< ptcomb << '\n';
+      std::cout << "mcomb "<< sqrt(m2) << '\n';
+
+      std::cout << "z_cut "<< _z_cut << '\n';
+      std::cout << "DeltaR "<< DeltaR << '\n';
+      std::cout << "beta "<< _beta << '\n';
+
+      std::cout << "soft drop condition: min(pt1, pt2)/pt > zcut * (Rij/R0)^beta : " << std::endl;
+      std::cout <<  sd_left << " > " << sd_right << '\n';
     }
-     else{
-      //beam_R2 = _rho2*m2/pow(pt2,_alpha);
-      //m = 170;
-      beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt); // fancy radius
-      beam_R2 = beam_R*beam_R;
-    }
-
-    if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
-    else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
-
-    beam_R = std::sqrt(beam_R2);
-
-    if(_debug){std::cout << "-----------------Check Veto SD -----------------------" << '\n';
-    std::cout << "Alpha " << _alpha << '\n';
-    std::cout << "Beam R2 " << beam_R2 << '\n';
-    std::cout << "pt of 1. Jet "<< ptj1 << "pt of 2. Jet "<< ptj2 << '\n';
-    std::cout << "pt_threshold" <<_pt_threshold << '\n';
-    std::cout << "pt "<< pt << '\n';
-    std::cout << "ptcomb "<< ptcomb << '\n';
-    std::cout << "mcomb "<< m2 << '\n';
-
-    std::cout << "z_cut "<< _z_cut << '\n';
-    std::cout << "DeltaR "<< DeltaR << '\n';
-    std::cout << "beta "<< _beta << '\n';
-    double a = std::min(ptj1, ptj2) /ptcomb;
-    beam_R = 1;
-    double b = (_z_cut * std::pow((DeltaR / beam_R),_beta));
-    std::cout <<  a << " > " << b << '\n';}
 
     //if (ptj1 < _pt_threshold || ptj2 < _pt_threshold){ //ANNA 27.08. if we use this option we find subjets but do not store them, because more particles can be clustered to these jets and so the information about the subjets gets lost :(
     //if (ptcomb < _pt_threshold){ // ANNA leads to ca 20 subjets
-    if(std::min(ptj1, ptj2)< 10e-50 ){ // keep ghosts
+    if(std::min(ptj1, ptj2)< 10e-5 ){ // keep ghosts
         if(_debug){std::cout << ".............CLUSTER ghosts ............." << '\n';}
         return CLUSTER; // recombine
     }
@@ -667,13 +709,13 @@ namespace contrib {
         return CLUSTER; // recombine
     }
     else {
-        if ( std::min(ptj1, ptj2) /ptcomb  >  _z_cut * std::pow((DeltaR / beam_R),_beta)) { //check SD condition
-          if(_debug){std::cout << ".............VETO............." << '\n';}
-           return VETO; // if check pt > _ptsub + mu threshold for subjets, store subjets
+        if ( sd_left  > sd_right  ) { //check SD condition
+          if(_debug){std::cout << ".............NOVETO............." << '\n';}
+           return NOVETO; // if check pt > _ptsub, and mu threshold for subjets, store subjets
         }
         else {
-          if(_debug){std::cout << ".............NOVETO............." << '\n';}
-           return NOVETO; // remove softer jet
+          if(_debug){std::cout << ".............VETO............." << '\n';}
+           return VETO; // remove softer jet
         }
      }
   }
