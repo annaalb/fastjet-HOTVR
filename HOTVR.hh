@@ -105,8 +105,9 @@ namespace contrib {
     /// std::vector<fastjet::PseudoJet> hotvr_jets;
     /// hotvr_jets = hotvr_plugin.get_jets();
     /// \endcode
-    HOTVR(double mu, double theta,double min_r, double max_r,double rho, double pt_sub, double clust_type,
-            Strategy requested_strategy = Best);
+    //HOTVR(double mu, double theta, double min_r, double max_r,double rho, double pt_sub, double clust_type,
+    //        Strategy requested_strategy = Best);
+
     /// ANNA: Constructor that sets HOTVR algorithm parameters for HOTVR with Softdrop
     ///  - beta          soft drop angle dependence
     ///  - z_cut         soft drop strength
@@ -121,8 +122,10 @@ namespace contrib {
     ///  - strategy      one of Best (the default), N2Tiled , N2Plain or NNH
     ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy,
     ///                  for earlier FastJet versions NNH is used
-    HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r,double rho, double pt_sub, double mu, double clust_type, double alpha,
+    HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r, double rho, double pt_sub, double mu, double clust_type, double alpha,
           Strategy requested_strategy = Best); //ANNA new constructor for HOTVR with Softdrop, possibility to change alpha
+
+    void set_jetptmin(double ptmin){_jetptmin = ptmin;}
 
     // Virtual function from JetDefinition::Plugin that implements the algorithm
     void run_clustering(fastjet::ClusterSequence & cs) const;
@@ -133,8 +136,8 @@ namespace contrib {
     // NOTE: Required by JetDefinition::Plugin
     double R() const { return sqrt(_max_r2); }
     std::vector<PseudoJet>  get_jets(){return sorted_by_pt(_hotvr_jets);} //return the candidate jets
-    std::vector<fastjet::PseudoJet> get_soft_cluster(){return _soft_cluster;} //return the clusters rejected by the comparison to a harder cluster
-    std::vector<fastjet::PseudoJet> get_rejected_cluster(){return _rejected_cluster;} //return jets without massjumps
+    std::vector<fastjet::PseudoJet> get_soft_cluster(){return _soft_cluster;} //return the soft clusters rejected by the soft drop condition
+    std::vector<fastjet::PseudoJet> get_rejected_cluster(){return _rejected_cluster;} //return jets without subjets
     std::vector<fastjet::PseudoJet> get_rejected_subjets(){return _rejected_subjets;} //return subjets rejected by the pT criterion
     void Reset(){ _hotvr_jets.clear(); _soft_cluster.clear();  _rejected_cluster.clear(); _subjets.clear(); _jets.clear(); _rejected_subjets.clear();}
 
@@ -142,14 +145,22 @@ namespace contrib {
 
     // bool for banner printout
     static bool _already_printed;
-    // ANNA added Parameters for soft drop condition
+
     double _beta, _z_cut, _pt_threshold;
+    double _min_r2, _max_r2, _max_r;
+    double _rho2, _pt_sub, _mu;
+    // ANNA added Parameters for soft drop condition
+
     // Parameters of the HOTVR
-    double _mu, _theta, _min_r2, _max_r2, _max_r, _rho2, _pt_sub;
+
     double _clust_type;
+    double _alpha;     // ANNA add _alpha
     Strategy _requested_strategy;
-    // ANNA add _alpha
-    double _alpha;
+    double _jetptmin;
+    double _theta;
+
+    // some debugging output
+    bool _debug;
 
     // the jets and rejected clusters
     mutable std::vector<fastjet::PseudoJet> _jets;
@@ -216,45 +227,49 @@ namespace contrib {
     void init(const PseudoJet & jet, HOTVRNNInfo *info) {
       _rap = jet.rap();
       _phi = jet.phi();
+      _fourmom = jet;
+
+      _max_r2 = info->max_r2();
+      _min_r2 = info->min_r2();
+
       double pt2 = jet.pt2();
-      double pt = sqrt(pt2);
+      //double pt = sqrt(pt2);
       double m2 = jet.m2();
       double m = sqrt(m2);
-      double beam_R;
+
+      _debug = false;
+
       // get the effective "radius" Reff
-    //  _beam_R2 = info->rho2()/pt2;
+      //_beam_R2 = info->rho2()/pt2;
 
-    //  _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
-    //  _beam_R2 = info->rho2()*m2/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent and mass dependent
+      //  _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
+      //  _beam_R2 = info->rho2()*m2/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent and mass dependent
 
-    if(pt< 10e-50 ){ // keep ghosts
-  //  if (m2 < pow(30,2) ) {
-      //beam_R2 = 36000/pow(pt2,_alpha);
-      _beam_R2 = pow(2*pi,2);
-      std::cout << "HOTVR.hh GHOST radius^2" << _beam_R2 << '\n';
-    }
-      else{
         //_beam_R2 = info->rho2()*m2/pow(pt2,info->alpha());
         //m = 170;
-        beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
-        _beam_R2 = beam_R*beam_R;
-        std::cout << "HOTVR.hh radius = " << beam_R << '\n';
+      //double beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
 
-      }
+      // try this one: R = 1/ET * (a + m^2/b) with a = 140 GeV and b = 50 GeV
+      // add a counter-term such that very large masses (>>mt) are not preferred
+      double ET2 = pt2 + m2;
+      double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      if (mterm<0) mterm = 0;
+      _beam_R2 = 1/ET2 * mterm*mterm;
 
       if      (_beam_R2 > info->max_r2()){ _beam_R2 = info->max_r2();}
       else if (_beam_R2 < info->min_r2()){ _beam_R2 = info->min_r2();}
 
-      // std::cout << "---------Alpha: " << info->alpha() << '\n';
-      // std::cout << "Rho2: " << info->rho2() << '\n';
-       //std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
-      //
-      // std::cout << "pt2: " << pt2 << '\n';
-      // std::cout << "pt: " << std::sqrt(pt2) << '\n';
-       //std::cout << "m: " << std::sqrt(m2) << '\n';
-      //
-      // std::cout << "beam_R2 "<< _beam_R2 << '\n';
-      // std::cout << "beam_R "<< std::sqrt(_beam_R2) << '\n';
+      if (_debug){
+         std::cout << "HOTVRBriefJet: ---------Alpha: " << info->alpha() << '\n';
+         std::cout << "Rho2: " << info->rho2() << '\n';
+         std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
+         std::cout << "pt2: " << pt2 << '\n';
+         std::cout << "ET2: " << ET2 << ", ET = " << sqrt(ET2) << '\n';
+         std::cout << "pt: " << std::sqrt(pt2) << '\n';
+         std::cout << "m: " << m << '\n';
+         std::cout << "beam_R2 "<< _beam_R2 << '\n';
+         std::cout << "beam_R "<< std::sqrt(_beam_R2) << '\n';
+      }
 
       // get the appropriate momentum scale
       _mom_factor2 = info->momentum_scale_of_pt2(pt2);
@@ -264,12 +279,36 @@ namespace contrib {
       double dphi = std::abs(_phi - jet->_phi);
       double deta = (_rap - jet->_rap);
       if (dphi > pi) {dphi = twopi - dphi;}
-      return dphi*dphi + deta*deta;
+      double dR2 = dphi*dphi + deta*deta;
+
+      PseudoJet combj = _fourmom + jet->four_momentum();
+      double m2 = combj.m2();
+      double m = sqrt(m2);
+      double pt2 = combj.pt2();
+      //double jetR = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
+      //double jetR2 = jetR*jetR;
+
+      double ET2 = pt2 + m2;
+      //double mterm = 140. + m2/50;
+      double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      if (mterm<0) mterm = 0;
+      double jetR2 = 1/ET2 * mterm*mterm;
+
+      if (jetR2 > _max_r2) {jetR2 = _max_r2;}
+      if (jetR2 < _min_r2) {jetR2 = _min_r2;}
+
+      return dR2/jetR2;
+      //return dR2/_beam_R2;
     }
 
-    double geometrical_beam_distance() const { return _beam_R2; }
+    double variable_distance() const { return _beam_R2; }
+
+    //double geometrical_beam_distance() const { return _beam_R2; }
+    double geometrical_beam_distance() const { return 1; }
 
     double momentum_factor() const{ return _mom_factor2; }
+
+    PseudoJet four_momentum() const { return _fourmom; }
 
     /// make this BJ class compatible with the use of NNH
     double distance(const HOTVRBriefJet * other_bj_jet){
@@ -286,7 +325,10 @@ namespace contrib {
     inline double phi() const{ return _phi;}
 
   private:
+    PseudoJet _fourmom;
+    double _max_r2, _min_r2;
     double _rap, _phi, _mom_factor2, _beam_R2;
+    bool _debug;
   };
 
 } // namespace contrib
