@@ -197,8 +197,11 @@ namespace contrib {
 
     // loop over pseudojets
     int njets = cs.jets().size();
+    static int step = njets;
+
     if (_debug) {std::cout << "NN_clustering: HOTVR number of pseudojets = " << njets << '\n';}
-    while (njets > 0) { // combine jets untill the list is empty
+    while (njets > 0)
+    { // combine jets untill the list is empty
       bool existing_i=false;
       bool existing_j=false;
       int i(-1), j(-1);
@@ -206,12 +209,16 @@ namespace contrib {
 
       // If j<0 then i recombines with the beam
       if(_debug){
-        std::cout << "\nNext clustering step. \n";
+        std::cout << "\nNext clustering step: " << step << " \n";
         std::cout << "dij is "<< dij << '\n';
+        ++step;
       }
 
       if(j < 0) {//diB is smallest
-        if(_debug){std::cout << ".................d_iB is smallest............. j = "<<j << '\n';}
+        if(_debug){
+          std::cout << ".................d_iB is smallest............. j = "<<j << '\n';
+        }
+
 	      cs.plugin_record_iB_recombination(i,dij);
 
 	      _jets.push_back(cs.jets()[i]); //ANNA the last pseudojet (final HOTVR jet) i is stored as jet
@@ -228,7 +235,8 @@ namespace contrib {
 
         // now go through all stored jets
         if(_debug){
-          std::cout << "Let's store jet with index = " << i << " and pt = " << cs.jets()[i].pt() << '\n';
+          std::cout << "Let's store jet with index = " << i << " and pt = " << cs.jets()[i].pt()
+                    << ", eta = " << cs.jets()[i].eta() << ", phi = " << cs.jets()[i].phi() << ", m = " << cs.jets()[i].m() << '\n';
           std::cout << "Minimum jet pT should be " << _jetptmin << " and min subjet pT = " << _pt_sub << '\n';
         }
 	      for(uint o=0;o<_jets.size();o++){ //ANNA go through all stored jets
@@ -332,8 +340,45 @@ namespace contrib {
 
 
       int k=-1;//dij is smallest
-    // ANNA: replaced the massjump switch by a softdrop switch
-    //  switch ( CheckVeto ( cs.jets()[i],cs.jets()[j] ) ) {//below the massjump threshold mu: cluster
+      if(_debug){
+        std::cout << "dij is smallest. dij = " << dij << '\n';
+        PseudoJet j1 = cs.jets()[i];
+        PseudoJet j2 = cs.jets()[j];
+        HOTVRNNInfo* nninfo = new HOTVRNNInfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha);
+        PseudoJet combj = j1+j2;
+        HOTVRBriefJet bj;
+        bj.init(combj, nninfo);
+
+        double beam_R2 = bj.geometrical_beam_distance();
+        double beam_R = std::sqrt(beam_R2);
+        double DeltaR = j1.delta_R(j2);
+
+        std::cout << "Jet1: pt = " << j1.pt() << ", eta = " << j1.eta() << ", phi = " << j1.phi() << ", m = " << j1.m() << std::endl;
+        std::cout << "Jet2: pt = " << j2.pt() << ", eta = " << j2.eta() << ", phi = " << j2.phi() << ", m = " << j2.m() << std::endl;
+        std::cout << "pt1+pt2 = " << combj.pt() << " combined mass = " << combj.m() << std::endl;
+        std::cout << "ET1 = " << sqrt(j1.pt2()+j1.m2()) << ", ET2 = " << sqrt(j2.pt2()+j2.m2()) << ", combined ET = " << sqrt(combj.pt2()+combj.m2()) << std::endl;
+        std::cout << "DeltaR = " << DeltaR << std::endl;
+        std::cout << "beam distance R2 = " << beam_R2 << ", R = " << beam_R << std::endl;
+        std::cout << "DeltaR / R = " << DeltaR / beam_R << std::endl;
+        std::cout << "Compare: rho/pt = " << sqrt(_rho2 / combj.pt2()) << std::endl;
+
+        double m2 = combj.m2();
+        double pt2 = combj.pt2();
+        double m = sqrt(m2);
+        //double fancyR = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
+        double ET2 = pt2 + m2;
+        //double mterm = 140. + m2/50;
+        double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+        if (mterm<0) mterm = 0;
+        double fancyR = sqrt( 1/ET2 * mterm*mterm );
+        std::cout << "fancyR = " << fancyR << " DeltaR/fancyR = " << DeltaR/fancyR
+                  << " (DeltaR/fancyR)^2 = " << DeltaR/fancyR*DeltaR/fancyR << std::endl;
+      }
+
+
+
+      // ANNA: replaced the massjump switch by a softdrop switch
+      //  switch ( CheckVeto ( cs.jets()[i],cs.jets()[j] ) ) {//below the massjump threshold mu: cluster
       switch ( CheckVeto_SoftDrop ( cs.jets()[i],cs.jets()[j] ) ) {
 
       case CLUSTER: {
@@ -640,7 +685,7 @@ namespace contrib {
   // this function is taken from ClusteringVetoPlugin 1.0.0
   HOTVR::VetoResult HOTVR::CheckVeto(const PseudoJet& j1, const PseudoJet& j2) const {
 
-    if(_debug){std::cout << "-----------------Check Veto MJ -----------------------" << '\n';
+    if(_debug){std::cout << "-----------------Check Veto SD -----------------------" << '\n';
   }
 
     PseudoJet combj = j1+j2;
@@ -658,23 +703,34 @@ namespace contrib {
   // check the SoftDrop terminating veto
   HOTVR::VetoResult HOTVR::CheckVeto_SoftDrop(const PseudoJet& j1, const PseudoJet& j2) const {
 
-    PseudoJet combj = j1+j2;
-    double pt = combj.pt();
-    double pt2 = combj.pt2();
-    double m2 = combj.m2();
-    double beam_R2 = _rho2/pt2;
+    //PseudoJet combj = j1+j2;
+    //double pt = combj.pt();
+    //double pt2 = combj.pt2();
+    //double m2 = combj.m2();
+    //double beam_R2 = _rho2/pt2;
     //double beam_R2 = _rho2/pow(pt2,_alpha); // calculate effective radius with tunable exponent
     //double beam_R2 = _rho2*m2/pow(pt2,_alpha); // calculate effective radius depending on mass and pt
 
-    if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
-    else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
+    //if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
+    //else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
 
+    static HOTVRNNInfo* nninfo = new HOTVRNNInfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha); // ANNA added alpha here
+    PseudoJet combj = j1+j2;
+    HOTVRBriefJet bj;
+    bj.init(combj, nninfo);
+
+    double beam_R2 = bj.variable_distance();
     double beam_R = std::sqrt(beam_R2);
     double DeltaR = j1.delta_R(j2);
 
     double ptj1 = abs (j1.pt()); // pt values are always >0
     double ptj2 = abs (j2.pt());
     double ptcomb = abs (ptj1+ptj2);
+
+    // todo:
+    // much easier: for the term DeltaR / beam_R, get the geometrical distance between two HOTVRBriefJets,
+    // this is defined to give dR2/_beam_R2
+    // then take the sqrt of this to get DeltaR / beam_R
 
     double sd_left  = std::min(ptj1, ptj2)/ptcomb;
     double sd_right = (_z_cut * std::pow((DeltaR / beam_R),_beta));
@@ -685,10 +741,9 @@ namespace contrib {
       std::cout << "DeltaR " << DeltaR << '\n';
       std::cout << "Beam R0 " << beam_R << '\n';
       std::cout << "pt of 1. Jet "<< ptj1 << ", pt of 2. Jet "<< ptj2 << '\n';
-      std::cout << "pt_threshold " <<_pt_threshold << '\n';
-      std::cout << "pt "<< pt << '\n';
-      std::cout << "ptcomb "<< ptcomb << '\n';
-      std::cout << "mcomb "<< sqrt(m2) << '\n';
+      std::cout << "pt1+pt2 "<< ptcomb << '\n';
+      std::cout << "pt_threshold " << _pt_threshold << '\n';
+      std::cout << "mcomb "<< (j1+j2).m() << '\n';
 
       std::cout << "z_cut "<< _z_cut << '\n';
       std::cout << "DeltaR "<< DeltaR << '\n';

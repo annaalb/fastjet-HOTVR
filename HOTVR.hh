@@ -227,43 +227,49 @@ namespace contrib {
     void init(const PseudoJet & jet, HOTVRNNInfo *info) {
       _rap = jet.rap();
       _phi = jet.phi();
+      _fourmom = jet;
+
+      _max_r2 = info->max_r2();
+      _min_r2 = info->min_r2();
+
       double pt2 = jet.pt2();
       //double pt = sqrt(pt2);
-      //double m2 = jet.m2();
-      //double m = sqrt(m2);
+      double m2 = jet.m2();
+      double m = sqrt(m2);
+
+      _debug = false;
 
       // get the effective "radius" Reff
-      _beam_R2 = info->rho2()/pt2;
+      //_beam_R2 = info->rho2()/pt2;
 
       //  _beam_R2 = info->rho2()/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent
       //  _beam_R2 = info->rho2()*m2/pow(pt2,info->alpha()); // calculate effective radius with tunable exponent and mass dependent
 
-
-      //if(pt< 10e-50 ){ // keep ghosts
-        // if (m2 < pow(30,2) ) {
-        // beam_R2 = 36000/pow(pt2,_alpha);
-      //  _beam_R2 = pow(2*pi,2);
-      //}
-      //else{
         //_beam_R2 = info->rho2()*m2/pow(pt2,info->alpha());
         //m = 170;
-        //double beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
-        //_beam_R2 = beam_R*beam_R;
-      //}
+      //double beam_R = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
+
+      // try this one: R = 1/ET * (a + m^2/b) with a = 140 GeV and b = 50 GeV
+      // add a counter-term such that very large masses (>>mt) are not preferred
+      double ET2 = pt2 + m2;
+      double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      if (mterm<0) mterm = 0;
+      _beam_R2 = 1/ET2 * mterm*mterm;
 
       if      (_beam_R2 > info->max_r2()){ _beam_R2 = info->max_r2();}
       else if (_beam_R2 < info->min_r2()){ _beam_R2 = info->min_r2();}
 
-      // std::cout << "---------Alpha: " << info->alpha() << '\n';
-      // std::cout << "Rho2: " << info->rho2() << '\n';
-       //std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
-      //
-      // std::cout << "pt2: " << pt2 << '\n';
-      // std::cout << "pt: " << std::sqrt(pt2) << '\n';
-       //std::cout << "m: " << std::sqrt(m2) << '\n';
-      //
-      // std::cout << "beam_R2 "<< _beam_R2 << '\n';
-      // std::cout << "beam_R "<< std::sqrt(_beam_R2) << '\n';
+      if (_debug){
+         std::cout << "HOTVRBriefJet: ---------Alpha: " << info->alpha() << '\n';
+         std::cout << "Rho2: " << info->rho2() << '\n';
+         std::cout << "Rho: " << std::sqrt(info->rho2()) << '\n';
+         std::cout << "pt2: " << pt2 << '\n';
+         std::cout << "ET2: " << ET2 << ", ET = " << sqrt(ET2) << '\n';
+         std::cout << "pt: " << std::sqrt(pt2) << '\n';
+         std::cout << "m: " << m << '\n';
+         std::cout << "beam_R2 "<< _beam_R2 << '\n';
+         std::cout << "beam_R "<< std::sqrt(_beam_R2) << '\n';
+      }
 
       // get the appropriate momentum scale
       _mom_factor2 = info->momentum_scale_of_pt2(pt2);
@@ -273,12 +279,36 @@ namespace contrib {
       double dphi = std::abs(_phi - jet->_phi);
       double deta = (_rap - jet->_rap);
       if (dphi > pi) {dphi = twopi - dphi;}
-      return dphi*dphi + deta*deta;
+      double dR2 = dphi*dphi + deta*deta;
+
+      PseudoJet combj = _fourmom + jet->four_momentum();
+      double m2 = combj.m2();
+      double m = sqrt(m2);
+      double pt2 = combj.pt2();
+      //double jetR = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
+      //double jetR2 = jetR*jetR;
+
+      double ET2 = pt2 + m2;
+      //double mterm = 140. + m2/50;
+      double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      if (mterm<0) mterm = 0;
+      double jetR2 = 1/ET2 * mterm*mterm;
+
+      if (jetR2 > _max_r2) {jetR2 = _max_r2;}
+      if (jetR2 < _min_r2) {jetR2 = _min_r2;}
+
+      return dR2/jetR2;
+      //return dR2/_beam_R2;
     }
 
-    double geometrical_beam_distance() const { return _beam_R2; }
+    double variable_distance() const { return _beam_R2; }
+
+    //double geometrical_beam_distance() const { return _beam_R2; }
+    double geometrical_beam_distance() const { return 1; }
 
     double momentum_factor() const{ return _mom_factor2; }
+
+    PseudoJet four_momentum() const { return _fourmom; }
 
     /// make this BJ class compatible with the use of NNH
     double distance(const HOTVRBriefJet * other_bj_jet){
@@ -295,7 +325,10 @@ namespace contrib {
     inline double phi() const{ return _phi;}
 
   private:
+    PseudoJet _fourmom;
+    double _max_r2, _min_r2;
     double _rap, _phi, _mom_factor2, _beam_R2;
+    bool _debug;
   };
 
 } // namespace contrib
