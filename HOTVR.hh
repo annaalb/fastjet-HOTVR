@@ -122,7 +122,7 @@ namespace contrib {
     ///  - strategy      one of Best (the default), N2Tiled , N2Plain or NNH
     ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy,
     ///                  for earlier FastJet versions NNH is used
-    HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r, double rho, double pt_sub, double mu, double clust_type, double alpha,
+    HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r, double rho, double pt_sub, double mu, double clust_type, double alpha, double a, double b, double c,
           Strategy requested_strategy = Best); //ANNA new constructor for HOTVR with Softdrop, possibility to change alpha
 
     void set_jetptmin(double ptmin){_jetptmin = ptmin;}
@@ -155,6 +155,7 @@ namespace contrib {
 
     double _clust_type;
     double _alpha;     // ANNA add _alpha
+    double _a, _b, _c;
     Strategy _requested_strategy;
     double _jetptmin;
     double _theta;
@@ -198,15 +199,18 @@ namespace contrib {
   class HOTVRNNInfo {
   public:
     HOTVRNNInfo(double rho2_in, double min_r2_in, double max_r2_in,
-                    double clust_type_in, double alpha_in) // ANNA added alpha
+                    double clust_type_in, double alpha_in, double a_in, double b_in, double c_in) // ANNA added alpha // add parameters for exp function
       : _rho2(rho2_in), _min_r2(min_r2_in), _max_r2(max_r2_in),
         _clust_type(clust_type_in),
-        _alpha(alpha_in) {}
+        _alpha(alpha_in), _a(a_in), _b(b_in), _c(c_in) {}
 
     double rho2()  const  {return _rho2; }
     double min_r2() const {return _min_r2;}
     double max_r2() const {return _max_r2;}
     double alpha() const {return _alpha;}
+    double a() const {return _a;}
+    double b() const {return _b;}
+    double c() const {return _c;}
     double momentum_scale_of_pt2(double pt2) const {
       return pow(pt2,_clust_type);
     }
@@ -217,6 +221,10 @@ namespace contrib {
     double _max_r2; ///< maximal allowed radius squared
     double _clust_type; ///< cluster type (power "p" in distance measure)
     double _alpha; ///< exponent in the effective radius
+    double _a; // parameter for exp function in mass term
+    double _b; // parameter for exp function in mass term
+    double _c; // parameter for exp function in mass term
+
   };
 
   // class carrying the minimal info required for the clustering
@@ -252,7 +260,9 @@ namespace contrib {
       // try this one: R = 1/ET * (a + m^2/b) with a = 140 GeV and b = 50 GeV
       // add a counter-term such that very large masses (>>mt) are not preferred
       double ET2 = pt2 + m2;
-      double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+    //  double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      double mterm = 150. + m2/50 - info->a()*exp((m-info->b()/info->c()));
+
       if (mterm<0) mterm = 0;
       _beam_R2 = 1/ET2 * mterm*mterm;
 
@@ -290,7 +300,9 @@ namespace contrib {
 
       double ET2 = pt2 + m2;
       //double mterm = 140. + m2/50;
-      double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      //double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      double mterm = 150. + m2/50 - _a*exp((m-_b)/_c);
+
       if (mterm<0) mterm = 0;
       double jetR2 = 1/ET2 * mterm*mterm;
 
@@ -327,6 +339,7 @@ namespace contrib {
   private:
     PseudoJet _fourmom;
     double _max_r2, _min_r2;
+    double _a, _b, _c;
     double _rap, _phi, _mom_factor2, _beam_R2;
     bool _debug;
   };

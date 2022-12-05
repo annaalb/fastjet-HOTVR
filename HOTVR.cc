@@ -120,11 +120,12 @@ namespace contrib {
   ///                  for FastJet>=3.2.0, the N2Tiled option is the default strategy,
   ///                  for earlier FastJet versions NNH is used
   ///  - alpha         change the slope of effective radius (default alpha=1)
-  HOTVR::HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r, double rho, double pt_sub, double mu, double clust_type, double alpha,
+  ///  - a,b,c         parameters for mass term in effective radius
+  HOTVR::HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r, double rho, double pt_sub, double mu, double clust_type, double alpha, double a, double b, double c,
     Strategy requested_strategy):
       _beta(beta), _z_cut(z_cut), _pt_threshold(pt_threshold), _min_r2(min_r*min_r), _max_r2(max_r*max_r), _max_r(max_r),
      _rho2(rho*rho), _pt_sub(pt_sub), _mu(mu),
-     _clust_type(clust_type),  _alpha(alpha),
+     _clust_type(clust_type),  _alpha(alpha), _a(a), _b(b), _c(c),
      _requested_strategy(requested_strategy)
   {
     if (!_already_printed){
@@ -164,7 +165,7 @@ namespace contrib {
     }
 
     // set up NNH
-    HOTVRNNInfo nninfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha); // ANNA added alpha here
+    HOTVRNNInfo nninfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha, _a, _b, _c); // ANNA added alpha here
 
     // the following code has been written by G. Soyez and is taken from
     // VariableR/VariableRPlugin.cc, version 1.2.1
@@ -344,7 +345,7 @@ namespace contrib {
         std::cout << "dij is smallest. dij = " << dij << '\n';
         PseudoJet j1 = cs.jets()[i];
         PseudoJet j2 = cs.jets()[j];
-        HOTVRNNInfo* nninfo = new HOTVRNNInfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha);
+        HOTVRNNInfo* nninfo = new HOTVRNNInfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha, _a, _b, _c);
         PseudoJet combj = j1+j2;
         HOTVRBriefJet bj;
         bj.init(combj, nninfo);
@@ -368,7 +369,9 @@ namespace contrib {
         //double fancyR = 0.15+2.7*m/pt + (1 + signbit(m-150))/2 * (0.15+0.1*m/pt);
         double ET2 = pt2 + m2;
         //double mterm = 140. + m2/50;
-        double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+      //  double mterm = 150. + m2/50 - 200*exp((m-200)/40);
+        double mterm = 150. + m2/50 - _a*exp((m-_b)/_c);
+
         if (mterm<0) mterm = 0;
         double fancyR = sqrt( 1/ET2 * mterm*mterm );
         std::cout << "fancyR = " << fancyR << " DeltaR/fancyR = " << DeltaR/fancyR
@@ -714,7 +717,7 @@ namespace contrib {
     //if      (beam_R2 > _max_r2){ beam_R2 = _max_r2;}
     //else if (beam_R2 < _min_r2){ beam_R2 = _min_r2;}
 
-    static HOTVRNNInfo* nninfo = new HOTVRNNInfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha); // ANNA added alpha here
+    static HOTVRNNInfo* nninfo = new HOTVRNNInfo(_rho2, _min_r2, _max_r2, _clust_type, _alpha, _a, _b, _c); // ANNA added alpha here
     PseudoJet combj = j1+j2;
     HOTVRBriefJet bj;
     bj.init(combj, nninfo);
