@@ -240,6 +240,10 @@ namespace contrib {
       _max_r2 = info->max_r2();
       _min_r2 = info->min_r2();
 
+      _a = info->a();
+      _b = info->b();
+      _c = info->c();
+
       double pt2 = jet.pt2();
       //double pt = sqrt(pt2);
       double m2 = jet.m2();
