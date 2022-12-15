@@ -265,7 +265,7 @@ namespace contrib {
       // add a counter-term such that very large masses (>>mt) are not preferred
       double ET2 = pt2 + m2;
     //  double mterm = 150. + m2/50 - 200*exp((m-200)/40);
-      double mterm = 150. + m2/50 - info->a()*exp((m-info->b()/info->c()));
+      double mterm = 150. + m2/50 - info->a()*exp((m-info->b())/info->c());
 
       if (mterm<0) mterm = 0;
       _beam_R2 = 1/ET2 * mterm*mterm;
