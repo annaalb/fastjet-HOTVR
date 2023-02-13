@@ -149,6 +149,7 @@ namespace contrib {
     double _clust_type;
     Strategy _requested_strategy;
     // ANNA add _alpha
+    double _jetptmin;
     double _alpha;
 
     // the jets and rejected clusters
