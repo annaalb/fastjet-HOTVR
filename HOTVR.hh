@@ -123,6 +123,7 @@ namespace contrib {
     HOTVR(double beta, double z_cut, double pt_threshold, double min_r, double max_r,double rho, double pt_sub, double mu, double clust_type, double alpha,
           Strategy requested_strategy = Best); //ANNA new constructor for HOTVR with Softdrop, possibility to change alpha
 
+    void set_jetptmin(double ptmin){_jetptmin = ptmin;}
     // Virtual function from JetDefinition::Plugin that implements the algorithm
     void run_clustering(fastjet::ClusterSequence & cs) const;
 
